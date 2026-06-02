@@ -1,0 +1,64 @@
+# ==========================================
+# YAOS (Qt C++ & QML) Git Ignore Configuration
+# ==========================================
+
+# --- Qt & Qmake Build Directories & Cache ---
+build/
+release/
+debug/
+Makefile
+Makefile.Debug
+Makefile.Release
+Makefile.yaos*
+*.qmake.stash
+*.moc
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+*.qmlc
+*.jsc
+
+# --- Local IDE Configurations ---
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.code-workspace
+*.iml
+
+# --- Compiled Output Binaries ---
+bin/
+lib/
+*.exe
+*.dll
+*.lib
+*.pdb
+*.exp
+*.a
+*.so
+*.dylib
+*.obj
+*.o
+
+# --- CMake Intermediate Build Folders ---
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CMakeUserPresets.json
+cmake-build-*/
+out/
+
+# --- Temporary, Log & OS Files ---
+*.log
+*.tmp
+*.swp
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
+tmp/
+project_structure.txt

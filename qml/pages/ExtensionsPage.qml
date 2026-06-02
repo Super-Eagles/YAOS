@@ -1,0 +1,959 @@
+import QtQuick 2.14
+import QtQuick.Controls 2.14
+import QtQuick.Layouts 1.14
+import "../components"
+import "../theme" as Design
+import QtGraphicalEffects 1.14
+
+Item {
+    id: extensionsPage
+    property var app
+    property var studioBridge
+    property real stackWidth: width
+    property var appRoot: app
+    property string currentPage: app ? app.currentPage : ""
+    property var draftConfig: app ?app.draftConfig: ({})
+    readonly property var summaryBoxStyle: Design.Theme.summaryBox("default")
+    readonly property var listItemStyle: Design.Theme.listItem("default")
+
+    QtObject {
+        id: stack
+        property real width: extensionsPage.stackWidth
+    }
+
+    function addMcpServer() {
+        return app ? app.addMcpServer.apply(app, arguments) : undefined;
+    }
+    function extensionSummaryCard() {
+        return app ? app.extensionSummaryCard.apply(app, arguments) : undefined;
+    }
+    function extensionValue() {
+        return app ? app.extensionValue.apply(app, arguments) : undefined;
+    }
+    function joinCsv() {
+        return app ? app.joinCsv.apply(app, arguments) : undefined;
+    }
+    function mapToLines() {
+        return app ? app.mapToLines.apply(app, arguments) : undefined;
+    }
+    function mcpServerNames() {
+        return app ? app.mcpServerNames.apply(app, arguments) : undefined;
+    }
+    function mcpServerValue() {
+        return app ? app.mcpServerValue.apply(app, arguments) : undefined;
+    }
+    function pageWidth() {
+        return app ? app.pageWidth.apply(app, arguments) : undefined;
+    }
+    function parseKeyValueLines() {
+        return app ? app.parseKeyValueLines.apply(app, arguments) : undefined;
+    }
+    function removeMcpServer() {
+        return app ? app.removeMcpServer.apply(app, arguments) : undefined;
+    }
+    function countCatalogInstalled(items) {
+        var list = items || [];
+        var count = 0;
+        for (var i = 0; i < list.length; ++i) {
+            if (list[i].installed) {
+                count += 1;
+            }
+        }
+        return count;
+    }
+    function setExtensionValue() {
+        return app ? app.setExtensionValue.apply(app, arguments) : undefined;
+    }
+    function setMcpServerValue() {
+        return app ? app.setMcpServerValue.apply(app, arguments) : undefined;
+    }
+    function splitCsv() {
+        return app ? app.splitCsv.apply(app, arguments) : undefined;
+    }
+    function extensionFormColumns(containerWidth) {
+        return containerWidth >= 860 ? 2 : 1;
+    }
+    function extensionCardColumns(containerWidth) {
+        if (containerWidth >= 1180) {
+            return 3;
+        }
+        return containerWidth >= 860 ? 2 : 1;
+    }
+    function installCatalogColumns(containerWidth) {
+        if (containerWidth >= 1120) {
+            return 3;
+        }
+        return containerWidth >= 860 ? 2 : 1;
+    }
+
+    ScrollView {
+        anchors.fill: parent
+        clip: true
+
+        Column {
+            width: pageWidth(stack.width)
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: 10
+
+            PageHero {
+                width: parent.width
+                compact: true
+                sectionKey: "extensions"
+                overline: "扩展平面 Extension Surface"
+                title: "扩展能力装配区"
+                description: "把插件、技能和 MCP 服务放进同一个接入层，安装、启用和模型绑定都在这里完成。"
+                metrics: [
+                    {
+                        "label": "目录 Catalog",
+                        "value": (studioBridge.extensionCatalog || []).length,
+                        "accent": Design.Theme.section("catalog").accent
+                    },
+                    {
+                        "label": "插件 Plugins",
+                        "value": (studioBridge.plugins || []).length,
+                        "accent": Design.Theme.section("plugins").accent
+                    },
+                    {
+                        "label": "技能 Skills",
+                        "value": (studioBridge.skills || []).length,
+                        "accent": Design.Theme.section("skills").accent
+                    },
+                    {
+                        "label": "接入 MCP",
+                        "value": mcpServerNames().length,
+                        "accent": Design.Theme.section("mcp").accent
+                    }
+                ]
+            }
+
+            ResponsiveCardGrid {
+                id: extensionSummaryGrid
+                width: parent.width
+                forcedColumns: extensionCardColumns(width)
+                minimumCellWidth: 280
+                
+
+                Repeater {
+                    model: 3
+                    delegate: NeoCard {
+                        property var cardData: extensionSummaryCard(index)
+                        width: extensionSummaryGrid.cellWidth
+                        height: 176
+                        stretchContent: true
+                        sectionKey: cardData.key || ""
+                        title: cardData.title || ""
+                        subtitle: cardData.detail || ""
+                        titleIconSpec: cardData.iconSpec
+                        titleIcon: cardData.icon || ""
+                        titleBadgeText: String(cardData.value || 0)
+                        titleBadgeColor: cardData.accent || Design.Theme.section(cardData.key || "extensions").accent
+                        guideText: cardData.guide || ""
+                        glowColor: cardData.accent || Design.Theme.section(cardData.key || "extensions").accent
+
+                        Column {
+                            width: parent.width
+                            spacing: 12
+
+                            Rectangle {
+                                id: extensionSummaryChip
+                                property var summaryChipStyle: Design.Theme.metricChip(cardData.accent || Design.Theme.section(cardData.key || "extensions").accent)
+                                width: parent.width
+                                height: 34
+                                radius: 12
+                                color: summaryChipStyle.background
+                                border.width: 1
+                                border.color: summaryChipStyle.border
+
+                                Item {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 12
+                                    anchors.rightMargin: 12
+
+                                    Text {
+                                        id: extensionSummaryLabel
+                                        text: "已接入"
+                                        color: extensionSummaryChip.summaryChipStyle.border
+                                        font.pixelSize: 11
+                                        font.weight: Font.Black
+                                        anchors.left: parent.left
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+
+                                    Rectangle {
+                                        id: extensionSummaryDivider
+                                        width: 1
+                                        height: parent.height - 16
+                                        color: summaryBoxStyle.border
+                                        anchors.left: extensionSummaryLabel.right
+                                        anchors.leftMargin: 8
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+
+                                    Text {
+                                        anchors.left: extensionSummaryDivider.right
+                                        anchors.leftMargin: 8
+                                        anchors.right: parent.right
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: "当前能力面已同步到扩展配置区"
+                                        color: summaryBoxStyle.meta
+                                        font.pixelSize: 11
+                                        elide: Text.ElideRight
+                                    }
+                                }
+                            }
+
+                            Text {
+                                width: parent.width
+                                text: "用于快速判断插件,技能和 MCP 的接入规模;下方每块卡片负责具体安装和配置."
+                                color: summaryBoxStyle.text
+                                font.pixelSize: 12
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+                    }
+                }
+            }
+
+            NeoCard {
+                width: parent.width
+                sectionKey: "extensions"
+                title: "可安装目录 Install Catalog"
+                subtitle: "插件会安装成可执行工具,技能会接入对话上下文,MCP 会写入预设并重载运行时."
+                titleIconKey: "catalog"
+                titleIcon: "⬢"
+                guideText: "先在这里浏览可安装目录,再按需点击安装;安装完成后,下方模型区块会出现对应的细项配置."
+
+                Column {
+                    id: installCatalogColumn
+                    width: parent.width
+                    spacing: 12
+
+                    ResponsiveGridStrip {
+                        width: parent.width
+                        itemCount: 4
+                        minimumCellWidth: 132
+                        maximumColumns: 4
+                        columnSpacing: 10
+                        rowSpacing: 10
+
+                        Repeater {
+                            model: [
+                                { "label": "目录条目", "value": (studioBridge.extensionCatalog || []).length || 0, "accent": Design.Theme.section("catalog").accent },
+                                { "label": "已安装", "value": countCatalogInstalled(studioBridge.extensionCatalog || []), "accent": Design.Theme.status("success").accent },
+                                { "label": "本地插件", "value": (studioBridge.plugins || []).length || 0, "accent": Design.Theme.section("plugins").accent },
+                                { "label": "本地技能", "value": (studioBridge.skills || []).length || 0, "accent": Design.Theme.section("skills").accent }
+                            ]
+
+                            delegate: Rectangle {
+                                Layout.fillWidth: true
+                                property color accentColor: modelData.accent
+                                property var chipStyle: Design.Theme.metricChip(accentColor)
+                                radius: 14
+                                implicitHeight: extensionCatalogMetricRow.implicitHeight + 12
+                                color: chipStyle.background
+                                border.width: 1
+                                border.color: chipStyle.border
+
+                                Row {
+                                    id: extensionCatalogMetricRow
+                                    x: 10
+                                    y: 6
+                                    spacing: 8
+
+                                    Text {
+                                        text: modelData.label
+                                        color: chipStyle.label
+                                        font.pixelSize: 11
+                                    }
+
+                                    Text {
+                                        text: modelData.value
+                                        color: chipStyle.value
+                                        font.pixelSize: 12
+                                        font.weight: Font.Black
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Text {
+                        width: parent.width
+                        visible: !studioBridge.extensionCatalog || studioBridge.extensionCatalog.length === 0
+                        text: "当前没有可安装目录条目."
+                        color: listItemStyle.meta
+                        wrapMode: Text.WordWrap
+                    }
+
+                    ResponsiveCardGrid {
+                        id: installCatalogGrid
+                        width: parent.width
+                        forcedColumns: installCatalogColumns(width)
+                        minimumCellWidth: 260
+                        spacing: 16
+
+                        Repeater {
+                            model: appRoot.currentPage === "extensions" ? studioBridge.extensionCatalog : []
+
+                            delegate: Rectangle {
+                                property string kindKey: modelData.kind === "plugin"
+                                    ? "plugin"
+                                    : (modelData.kind === "skill" ? "skill" : "mcp")
+                                property var kindChipStyle: Design.Theme.kindChip(kindKey)
+                                width: installCatalogGrid.cellWidth
+                                implicitHeight: catalogEntryColumn.implicitHeight + 24
+                                radius: 8
+                                color: listItemStyle.background
+                                border.width: 1
+                                border.color: kindChipStyle.border
+
+                                Column {
+                                    id: catalogEntryColumn
+                                    width: parent.width - 24
+                                    anchors.left: parent.left
+                                    anchors.top: parent.top
+                                    anchors.leftMargin: 12
+                                    anchors.topMargin: 12
+                                    spacing: 10
+
+                                    Item {
+                                        width: parent.width
+                                        height: Math.max(catalogKindChip.height, catalogTitleColumn.height, installCatalogAction.height)
+
+                                        Rectangle {
+                                            id: catalogKindChip
+                                            width: 92
+                                            height: 30
+                                            radius: 15
+                                            color: kindChipStyle.background
+                                            border.width: 1
+                                            border.color: kindChipStyle.border
+                                            anchors.left: parent.left
+                                            anchors.top: parent.top
+
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: modelData.kind === "plugin"
+                                                    ? "插件"
+                                                    : (modelData.kind === "skill" ? "技能" : "MCP")
+                                                color: kindChipStyle.text
+                                                font.pixelSize: 11
+                                                font.weight: Font.DemiBold
+                                            }
+                                        }
+
+                                        Column {
+                                            id: catalogTitleColumn
+                                            x: catalogKindChip.width + 10
+                                            width: Math.max(0, parent.width - x - installCatalogAction.width - 10)
+                                            spacing: 4
+                                            anchors.top: parent.top
+
+                                            Text {
+                                                width: parent.width
+                                                text: modelData.title || modelData.installId
+                                                color: listItemStyle.title
+                                                font.pixelSize: 15
+                                                font.weight: Font.DemiBold
+                                                elide: Text.ElideRight
+                                            }
+
+                                            Text {
+                                                width: parent.width
+                                                text: modelData.summary || ""
+                                                color: listItemStyle.body
+                                                font.pixelSize: 12
+                                                wrapMode: Text.WordWrap
+                                            }
+                                        }
+
+                                        ActionButton {
+                                            id: installCatalogAction
+                                            compact: true
+                                            text: modelData.installed ? "已安装" : (studioBridge.busy ? "处理中" : "安装")
+                                            tone: modelData.installed ? "success" : "neutral"
+                                            enabled: !modelData.installed && !studioBridge.busy
+                                            anchors.right: parent.right
+                                            anchors.top: parent.top
+                                            onClicked: studioBridge.installCatalogItem(modelData.catalogId)
+                                        }
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        text: modelData.description || ""
+                                        color: listItemStyle.text
+                                        font.pixelSize: 12
+                                        wrapMode: Text.WordWrap
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        text: "安装目标: " + (modelData.target || "")
+                                        color: modelData.installed ? Design.Theme.status("success").text : Design.Theme.status("info").text
+                                        font.pixelSize: 12
+                                        wrapMode: Text.WordWrap
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        visible: (modelData.tags || []).length > 0
+                                        text: "标签: " + (modelData.tags || []).join(" · ")
+                                        color: listItemStyle.meta
+                                        font.pixelSize: 12
+                                        wrapMode: Text.WordWrap
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            NeoCard {
+                width: parent.width
+                sectionKey: "plugins"
+                title: "插件模型设置 Plugin Models"
+                subtitle: "为每个插件单独指定启用状态,驱动和模型.已安装插件会被运行时自动发现,并注册成可调用工具."
+                titleIconKey: "plugins"
+                titleIcon: "⛭"
+                guideText: "针对每个插件单独指定 provider,model 和备注;启用后该插件会按这里的配置接入运行时."
+
+                Column {
+                    id: pluginSettingsColumn
+                    width: parent.width
+                    spacing: 12
+
+                    Rectangle {
+                        width: parent.width
+                        implicitHeight: pluginSummaryColumn.implicitHeight + 22
+                        radius: 16
+                        color: summaryBoxStyle.background
+                        border.width: 1
+                        border.color: summaryBoxStyle.border
+
+                        Column {
+                            id: pluginSummaryColumn
+                            anchors.fill: parent
+                            anchors.margins: 11
+                            spacing: 6
+
+                            Text {
+                                width: parent.width
+                                text: "已发现 " + String((studioBridge.plugins || []).length || 0) + " 个插件"
+                                color: summaryBoxStyle.title
+                                font.pixelSize: 13
+                                font.weight: Font.DemiBold
+                            }
+
+                            Text {
+                                width: parent.width
+                                text: "每个插件都可以单独指定 provider,model 和备注;修改后由运行时自动重载对应工具."
+                                color: summaryBoxStyle.text
+                                font.pixelSize: 12
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+                    }
+
+                    Text {
+                        width: parent.width
+                        visible: !studioBridge.plugins || studioBridge.plugins.length === 0
+                        text: "当前工作区还没有发现插件.将清单放到 plugins/<plugin-id>/plugin.json 后,这里会自动出现."
+                        color: listItemStyle.meta
+                        wrapMode: Text.WordWrap
+                    }
+
+                    ResponsiveCardGrid {
+                        id: pluginModelsGrid
+                        width: parent.width
+                        forcedColumns: extensionCardColumns(width)
+                        minimumCellWidth: 260
+                        spacing: 16
+
+                        Repeater {
+                            model: appRoot.currentPage === "extensions" ? studioBridge.plugins : []
+
+                            delegate: Rectangle {
+                                width: pluginModelsGrid.cellWidth
+                                implicitHeight: pluginForm.implicitHeight + 24
+                                radius: 8
+                                color: listItemStyle.background
+                                border.width: 1
+                                border.color: listItemStyle.border
+
+                                Column {
+                                    id: pluginForm
+                                    width: parent.width - 24
+                                    anchors.left: parent.left
+                                    anchors.top: parent.top
+                                    anchors.leftMargin: 12
+                                    anchors.topMargin: 12
+                                    spacing: 10
+
+                                    Text {
+                                        width: parent.width
+                                        text: (modelData.name || modelData.id) + "  ·  " + (modelData.version || "0.0.0")
+                                        color: listItemStyle.title
+                                        font.pixelSize: 15
+                                        font.weight: Font.DemiBold
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        text: modelData.description || modelData.rootPath || ""
+                                        color: listItemStyle.body
+                                        font.pixelSize: 12
+                                        wrapMode: Text.WordWrap
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        text: "工具名: " + ((modelData.toolName || "").length > 0 ? modelData.toolName : "自动生成") +
+                                            "  ·  执行器: " + ((modelData.executorType || "").length > 0 ? modelData.executorType : "未知")
+                                        color: Design.Theme.status("info").text
+                                        font.pixelSize: 12
+                                        wrapMode: Text.WordWrap
+                                    }
+
+                                    NeoCheckBox {
+                                        width: parent.width
+                                        text: "启用该插件配置"
+                                        checked: extensionValue("plugins", modelData.id, "enabled", true)
+                                        onToggled: setExtensionValue("plugins", modelData.id, "enabled", checked)
+                                    }
+
+                                    ResponsiveGridStrip {
+                                        width: parent.width
+                                        forcedColumns: extensionFormColumns(width)
+                                        itemCount: 2
+                                        minimumCellWidth: 180
+                                        maximumColumns: 2
+                                        columnSpacing: 10
+                                        rowSpacing: 10
+
+                                    GlassField {
+                                            Layout.fillWidth: true
+                                            text: extensionValue("plugins", modelData.id, "provider", "auto")
+                                            placeholderText: "驱动厂商,例如 auto / openai / anthropic"
+                                            onEditingFinished: setExtensionValue("plugins", modelData.id, "provider", text)
+                                        }
+
+                                    GlassField {
+                                            Layout.fillWidth: true
+                                            text: extensionValue("plugins", modelData.id, "model", "")
+                                            placeholderText: "插件默认模型"
+                                            onEditingFinished: setExtensionValue("plugins", modelData.id, "model", text)
+                                        }
+                                    }
+
+                                    GlassField {
+                                        width: parent.width
+                                        text: extensionValue("plugins", modelData.id, "note", "")
+                                        placeholderText: "备注,例如适用场景或约束"
+                                        onEditingFinished: setExtensionValue("plugins", modelData.id, "note", text)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            NeoCard {
+                width: parent.width
+                sectionKey: "skills"
+                title: "技能模型设置 Skill Models"
+                subtitle: "技能会按触发词或显式提及自动注入到当前对话上下文.这里可以控制启用状态,模型和触发词."
+                titleIconKey: "skills"
+                titleIcon: "✶"
+                guideText: "在这里控制技能是否生效,使用哪组模型以及哪些触发词会把技能注入到当前对话."
+
+                Column {
+                    id: skillSettingsColumn
+                    width: parent.width
+                    spacing: 12
+
+                    Rectangle {
+                        width: parent.width
+                        implicitHeight: skillSummaryColumn.implicitHeight + 22
+                        radius: 16
+                        color: summaryBoxStyle.background
+                        border.width: 1
+                        border.color: summaryBoxStyle.border
+
+                        Column {
+                            id: skillSummaryColumn
+                            anchors.fill: parent
+                            anchors.margins: 11
+                            spacing: 6
+
+                            Text {
+                                width: parent.width
+                                text: "已发现 " + String((studioBridge.skills || []).length || 0) + " 个技能"
+                                color: summaryBoxStyle.title
+                                font.pixelSize: 13
+                                font.weight: Font.DemiBold
+                            }
+
+                            Text {
+                                width: parent.width
+                                text: "这里控制技能注入的默认模型和触发词;触发词越清晰,对话里的命中越稳定."
+                                color: summaryBoxStyle.text
+                                font.pixelSize: 12
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+                    }
+
+                    Text {
+                        width: parent.width
+                        visible: !studioBridge.skills || studioBridge.skills.length === 0
+                        text: "当前工作区还没有发现技能.将技能放到 skills/<skill-id>/SKILL.md 后,这里会自动出现."
+                        color: listItemStyle.meta
+                        wrapMode: Text.WordWrap
+                    }
+
+                    ResponsiveCardGrid {
+                        id: skillModelsGrid
+                        width: parent.width
+                        forcedColumns: extensionCardColumns(width)
+                        minimumCellWidth: 260
+                        spacing: 16
+
+                        Repeater {
+                            model: appRoot.currentPage === "extensions" ? studioBridge.skills : []
+
+                            delegate: Rectangle {
+                                width: skillModelsGrid.cellWidth
+                                implicitHeight: skillForm.implicitHeight + 24
+                                radius: 8
+                                color: listItemStyle.background
+                                border.width: 1
+                                border.color: listItemStyle.border
+
+                                Column {
+                                    id: skillForm
+                                    width: parent.width - 24
+                                    anchors.left: parent.left
+                                    anchors.top: parent.top
+                                    anchors.leftMargin: 12
+                                    anchors.topMargin: 12
+                                    spacing: 10
+
+                                    Text {
+                                        width: parent.width
+                                        text: modelData.name || modelData.id
+                                        color: listItemStyle.title
+                                        font.pixelSize: 15
+                                        font.weight: Font.DemiBold
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        text: modelData.description || modelData.skillFile || ""
+                                        color: listItemStyle.body
+                                        font.pixelSize: 12
+                                        wrapMode: Text.WordWrap
+                                    }
+
+                                    NeoCheckBox {
+                                        width: parent.width
+                                        text: "启用该技能配置"
+                                        checked: extensionValue("skills", modelData.id, "enabled", true)
+                                        onToggled: setExtensionValue("skills", modelData.id, "enabled", checked)
+                                    }
+
+                                    ResponsiveGridStrip {
+                                        width: parent.width
+                                        forcedColumns: extensionFormColumns(width)
+                                        itemCount: 2
+                                        minimumCellWidth: 180
+                                        maximumColumns: 2
+                                        columnSpacing: 10
+                                        rowSpacing: 10
+
+                                    GlassField {
+                                            Layout.fillWidth: true
+                                            text: extensionValue("skills", modelData.id, "provider", "auto")
+                                            placeholderText: "驱动厂商,例如 auto / openai / anthropic"
+                                            onEditingFinished: setExtensionValue("skills", modelData.id, "provider", text)
+                                        }
+
+                                    GlassField {
+                                            Layout.fillWidth: true
+                                            text: extensionValue("skills", modelData.id, "model", "")
+                                            placeholderText: "技能默认模型"
+                                            onEditingFinished: setExtensionValue("skills", modelData.id, "model", text)
+                                        }
+                                    }
+
+                                    GlassField {
+                                        width: parent.width
+                                        text: extensionValue("skills", modelData.id, "note", "")
+                                        placeholderText: "备注,例如何时触发该技能"
+                                        onEditingFinished: setExtensionValue("skills", modelData.id, "note", text)
+                                    }
+
+                                    GlassField {
+                                        width: parent.width
+                                        text: joinCsv(extensionValue("skills", modelData.id, "triggers", []))
+                                        placeholderText: "触发词,逗号分隔,例如 review, regression, release"
+                                        onEditingFinished: setExtensionValue("skills", modelData.id, "triggers", splitCsv(text))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            NeoCard {
+                width: parent.width
+                sectionKey: "mcp"
+                title: "工具接入 MCP"
+                subtitle: "这里直接编辑 tools.mcpServers.运行时会自动发现远端工具,并把它们注册成可调用工具.当前已支持 stdio,streamable HTTP 和 SSE."
+                titleIconKey: "mcp"
+
+                Column {
+                    id: mcpSettingsColumn
+                    width: parent.width
+                    spacing: 12
+
+                    Rectangle {
+                        width: parent.width
+                        implicitHeight: mcpSummaryColumn.implicitHeight + 22
+                        radius: 16
+                        color: summaryBoxStyle.background
+                        border.width: 1
+                        border.color: summaryBoxStyle.border
+
+                        Column {
+                            id: mcpSummaryColumn
+                            anchors.fill: parent
+                            anchors.margins: 11
+                            spacing: 6
+
+                            Text {
+                                width: parent.width
+                                text: "当前已配置 " + String(mcpServerNames().length) + " 个 MCP 服务"
+                                color: summaryBoxStyle.title
+                                font.pixelSize: 13
+                                font.weight: Font.DemiBold
+                            }
+
+                            Text {
+                                width: parent.width
+                                text: "支持本地 stdio,streamable HTTP 和 SSE;顶部保存后,运行时会按这些预设重新注册远端工具."
+                                color: summaryBoxStyle.text
+                                font.pixelSize: 12
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+                    }
+
+                    ResponsiveGridStrip {
+                        id: mcpActionStrip
+                        width: parent.width
+                        itemCount: 4
+                        minimumCellWidth: 176
+                        maximumColumns: 3
+                        columnSpacing: 10
+                        rowSpacing: 10
+
+                        ActionButton {
+                            text: "新增 stdio 服务"
+                            Layout.fillWidth: true
+                            compact: true
+                            onClicked: addMcpServer("stdio")
+                        }
+
+                        ActionButton {
+                            text: "新增 HTTP 服务"
+                            Layout.fillWidth: true
+                            compact: true
+                            onClicked: addMcpServer("streamableHttp")
+                        }
+
+                        ActionButton {
+                            text: "新增 SSE 服务"
+                            Layout.fillWidth: true
+                            compact: true
+                            onClicked: addMcpServer("sse")
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            Layout.columnSpan: mcpActionStrip.columns
+                            text: "变更后记得点击顶部“保存更改”"
+                            color: listItemStyle.meta
+                            font.pixelSize: 12
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+
+                    Text {
+                        width: parent.width
+                        visible: mcpServerNames().length === 0
+                        text: "还没有 MCP 服务.新增后可以配置命令式 stdio 服务或 HTTP 服务."
+                        color: listItemStyle.meta
+                        wrapMode: Text.WordWrap
+                    }
+
+                    ResponsiveCardGrid {
+                        id: mcpServerGrid
+                        width: parent.width
+                        forcedColumns: extensionCardColumns(width)
+                        minimumCellWidth: 260
+                        spacing: 16
+
+                        Repeater {
+                            model: appRoot.currentPage === "extensions" ? mcpServerNames() : []
+
+                            delegate: Rectangle {
+                                property string serverName: modelData
+                                property string transport: mcpServerValue(serverName, "type", "stdio") || "stdio"
+                                property var transportOptions: ["stdio", "streamableHttp", "sse"]
+
+                                width: mcpServerGrid.cellWidth
+                                implicitHeight: mcpForm.implicitHeight + 24
+                                radius: 8
+                                color: listItemStyle.background
+                                border.width: 1
+                                border.color: listItemStyle.border
+
+                                Column {
+                                    id: mcpForm
+                                    width: parent.width - 24
+                                    anchors.left: parent.left
+                                    anchors.top: parent.top
+                                    anchors.leftMargin: 12
+                                    anchors.topMargin: 12
+                                    spacing: 10
+
+                                    ResponsiveGridStrip {
+                                        width: parent.width
+                                        forcedColumns: extensionFormColumns(width) + 1
+                                        itemCount: 2
+                                        minimumCellWidth: 160
+                                        maximumColumns: 2
+                                        columnSpacing: 10
+                                        rowSpacing: 10
+
+                                    Text {
+                                            Layout.fillWidth: true
+                                            text: serverName
+                                            color: listItemStyle.title
+                                            font.pixelSize: 15
+                                            font.weight: Font.DemiBold
+                                        }
+
+                                    ActionButton {
+                                            text: "删除"
+                                            compact: true
+                                            tone: "danger"
+                                            onClicked: removeMcpServer(serverName)
+                                        }
+                                    }
+
+                                    ResponsiveGridStrip {
+                                        width: parent.width
+                                        forcedColumns: extensionFormColumns(width) + 1
+                                        itemCount: 3
+                                        minimumCellWidth: 180
+                                        maximumColumns: 3
+                                        columnSpacing: 10
+                                        rowSpacing: 10
+
+                                    NeoComboBox {
+                                            Layout.fillWidth: true
+                                            model: transportOptions
+                                            currentIndex: Math.max(0, transportOptions.indexOf(transport))
+                                            onActivated: setMcpServerValue(serverName, "type", currentText)
+                                        }
+
+                                    GlassField {
+                                            Layout.fillWidth: true
+                                            text: String(mcpServerValue(serverName, "toolTimeout", 30))
+                                            placeholderText: "超时秒数"
+                                            onEditingFinished: {
+                                                var nextTimeout = parseInt(text);
+                                                setMcpServerValue(serverName, "toolTimeout", isNaN(nextTimeout) ? 30 : nextTimeout);
+                                            }
+                                        }
+
+                                    Text {
+                                            Layout.fillWidth: true
+                                            text: transport === "stdio"
+                                                ? "通过本地命令启动 MCP 进程"
+                                                : (transport === "streamableHttp"
+                                                    ? "通过 HTTP 调用远端 MCP"
+                                                    : "通过 SSE 会话与旧版 MCP 服务通信")
+                                            color: listItemStyle.meta
+                                            font.pixelSize: 12
+                                            wrapMode: Text.WordWrap
+                                        }
+                                    }
+
+                                    GlassField {
+                                        width: parent.width
+                                        visible: transport === "stdio"
+                                        text: mcpServerValue(serverName, "command", "")
+                                        placeholderText: "启动命令,例如 npx"
+                                        onEditingFinished: setMcpServerValue(serverName, "command", text)
+                                    }
+
+                                    GlassField {
+                                        width: parent.width
+                                        visible: transport === "stdio"
+                                        text: joinCsv(mcpServerValue(serverName, "args", []))
+                                        placeholderText: "参数,逗号分隔"
+                                        onEditingFinished: setMcpServerValue(serverName, "args", splitCsv(text))
+                                    }
+
+                                    GlassArea {
+                                        width: parent.width
+                                        height: 96
+                                        visible: transport === "stdio"
+                                        text: mapToLines(mcpServerValue(serverName, "env", {}))
+                                        placeholderText: "环境变量,每行 key=value"
+                                        onActiveFocusChanged: {
+                                            if (!activeFocus) {
+                                                setMcpServerValue(serverName, "env", parseKeyValueLines(text));
+                                            }
+                                        }
+                                    }
+
+                                    GlassField {
+                                        width: parent.width
+                                        visible: transport !== "stdio"
+                                        text: mcpServerValue(serverName, "url", "")
+                                        placeholderText: transport === "sse" ? "SSE 地址 / URL" : "HTTP 地址 / URL"
+                                        onEditingFinished: setMcpServerValue(serverName, "url", text)
+                                    }
+
+                                    GlassArea {
+                                        width: parent.width
+                                        height: 96
+                                        visible: transport !== "stdio"
+                                        text: mapToLines(mcpServerValue(serverName, "headers", {}))
+                                        placeholderText: "HTTP 请求头,每行 key=value"
+                                        onActiveFocusChanged: {
+                                            if (!activeFocus) {
+                                                setMcpServerValue(serverName, "headers", parseKeyValueLines(text));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Item { width: 1; height: 32 }
+        }
+    }
+}

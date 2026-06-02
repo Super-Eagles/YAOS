@@ -1,0 +1,7 @@
+module YAOS.Theme
+singleton Foundation 1.0 Foundation.qml
+singleton Palette 1.0 Palette.qml
+singleton IconRegistry 1.0 IconRegistry.qml
+singleton SemanticTokens 1.0 SemanticTokens.qml
+singleton ComponentTheme 1.0 ComponentTheme.qml
+singleton Theme 1.0 Theme.qml

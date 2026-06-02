@@ -1,0 +1,26 @@
+{
+  "enabled": true,
+  "name": "Architecture Check on Save",
+  "description": "After editing a C++ file in base or business layers, reminds the agent to verify no forbidden includes were introduced.",
+  "version": "1.0.0",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/config/**",
+      "src/bus/**",
+      "src/session/**",
+      "src/distributed/**",
+      "src/platform/**",
+      "src/runtime/**",
+      "src/memory/**",
+      "src/providers/**",
+      "src/channels/**",
+      "src/agent/**",
+      "src/app/**"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A file in the base or business layer was just edited. Check the file for forbidden includes: base layer must not include src/ui/*, src/agent/*, src/providers/*, src/channels/*, src/runtime/*, QtGui, or QtNetwork. Business layer must not include QtGui, QTextDocument, or QtNetwork. If any violation is found, fix it immediately. Network calls must route through FastNetHttpTransport or FastNetWebSocketTransport only."
+  }
+}

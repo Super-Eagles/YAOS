@@ -1,0 +1,59 @@
+<RCC>
+    <qresource prefix="/app">
+        <file alias="YAOS.ico">../assets/YAOS.ico</file>
+        <file alias="main.jpg">../assets/main.jpg</file>
+    </qresource>
+    <qresource prefix="/qml">
+        <file>Main.qml</file>
+        <file>Startup.qml</file>
+        <file>pages/ModelsPage.qml</file>
+        <file>pages/ChannelsPage.qml</file>
+        <file>pages/OverviewPage.qml</file>
+        <file>pages/ChatPage.qml</file>
+        <file>pages/RuntimePage.qml</file>
+        <file>pages/SecurityPage.qml</file>
+        <file>pages/ResourcesPage.qml</file>
+        <file>pages/ExtensionsPage.qml</file>
+        <file>pages/AutomationPage.qml</file>
+        <file>components/NeoCard.qml</file>
+        <file>components/NavChip.qml</file>
+        <file>components/ActionButton.qml</file>
+        <file>components/NeoComboBox.qml</file>
+        <file>components/NeoMultiSelectComboBox.qml</file>
+        <file>components/NeoCheckBox.qml</file>
+        <file>components/WindowControlButton.qml</file>
+        <file>components/GlassField.qml</file>
+        <file>components/GlassArea.qml</file>
+        <file>components/ReadOnlyTextView.qml</file>
+        <file>components/PageHero.qml</file>
+        <file>components/NeoIcon.qml</file>
+        <file>components/RuntimeSectionLinkButton.qml</file>
+        <file>components/RuntimeSectionQuickLinks.qml</file>
+        <file>components/DelegationTemplateCard.qml</file>
+        <file>components/DelegationDraftCard.qml</file>
+        <file>components/BatchDelegationDraftCard.qml</file>
+        <file>components/NodeDirectoryCard.qml</file>
+        <file>components/RoutingDiagnosticsCard.qml</file>
+        <file>components/RuntimePageCoordinator.qml</file>
+        <file>components/AgentCoreCard.qml</file>
+        <file>components/GatewayCard.qml</file>
+        <file>components/RuntimeTopologyCard.qml</file>
+        <file>components/MemoryPlaneCard.qml</file>
+        <file>components/ToolCapabilitiesCard.qml</file>
+        <file>components/WebSearchCard.qml</file>
+        <file>components/ResponsiveGridStrip.qml</file>
+        <file>components/ResponsiveCardGrid.qml</file>
+        <file>logic/DelegationTemplateDomain.js</file>
+        <file>logic/AutomationDomain.js</file>
+        <file>logic/ProviderDomain.js</file>
+        <file>logic/RuntimeNavigationDomain.js</file>
+        <file>logic/RuntimeStatusDomain.js</file>
+        <file>theme/qmldir</file>
+        <file>theme/Foundation.qml</file>
+        <file>theme/Palette.qml</file>
+        <file>theme/IconRegistry.qml</file>
+        <file>theme/SemanticTokens.qml</file>
+        <file>theme/ComponentTheme.qml</file>
+        <file>theme/Theme.qml</file>
+    </qresource>
+</RCC>

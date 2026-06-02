@@ -1,0 +1,2587 @@
+#include "StudioBridge.h"
+
+#include <QGuiApplication>
+#include <QDesktopServices>
+#include <QDateTime>
+#include <QDir>
+#include <QElapsedTimer>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QClipboard>
+#include <QDebug>
+#include <QMutexLocker>
+#include <QPoint>
+#include <QRegularExpression>
+#include <QScreen>
+#include <QUuid>
+#include <QTextDocument>
+#include <QTimer>
+#include <QUrlQuery>
+#include <QWindow>
+#include <QtConcurrent/QtConcurrentRun>
+
+#ifdef Q_OS_WIN
+#include <Windows.h>
+#endif
+
+#include "../config/ConfigLoader.h"
+#include "OAuthLoopbackServer.h"
+#include "StudioBackend.h"
+
+namespace yaos::ui {
+
+struct PendingOAuthSession {
+    QString providerId;
+    QString mode;
+    QString state;
+    QString codeVerifier;
+    QString redirectUri;
+    QString authUrl;
+    QString callbackUrl;
+    QString error;
+    bool complete = false;
+    bool success = false;
+    QSharedPointer<OAuthLoopbackServer> listener;
+};
+
+namespace {
+
+QVariantMap emptyDelegationRoutePreview(const QString &message = QString(),
+                                       const QString &error = QString()) {
+    QVariantMap preview{
+        {"ok", error.trimmed().isEmpty()},
+        {"pending", false},
+        {"resolved", false},
+        {"nodes", QVariantList()}
+    };
+    if (!message.trimmed().isEmpty()) {
+        preview.insert(QStringLiteral("message"), message);
+    }
+    if (!error.trimmed().isEmpty()) {
+        preview.insert(QStringLiteral("error"), error);
+    }
+    return preview;
+}
+
+QString chatTraceEventKey(const QVariantMap &event) {
+    const QString id = event.value(QStringLiteral("id")).toString().trimmed();
+    if (!id.isEmpty()) {
+        return id;
+    }
+    return QStringLiteral("%1|%2|%3|%4")
+        .arg(event.value(QStringLiteral("timestamp")).toString(),
+             event.value(QStringLiteral("category")).toString(),
+             event.value(QStringLiteral("level")).toString(),
+             event.value(QStringLiteral("message")).toString());
+}
+
+bool eventBelongsToPendingChatTurn(const QVariantMap &event,
+                                   const QString &taskId,
+                                   const QString &traceId,
+                                   const QString &sessionKey,
+                                   const QString &channel,
+                                   const QDateTime &startedAt) {
+    const QDateTime timestamp = QDateTime::fromString(event.value(QStringLiteral("timestamp")).toString(), Qt::ISODate);
+    if (startedAt.isValid() && timestamp.isValid() && timestamp < startedAt.addSecs(-1)) {
+        return false;
+    }
+
+    const QVariantMap metadata = event.value(QStringLiteral("metadata")).toMap();
+    QString eventTraceId = metadata.value(QStringLiteral("trace_id")).toString().trimmed();
+    if (eventTraceId.isEmpty()) {
+        eventTraceId = metadata.value(QStringLiteral("traceId")).toString().trimmed();
+    }
+    if (!traceId.trimmed().isEmpty() && eventTraceId == traceId.trimmed()) {
+        return true;
+    }
+
+    const QString eventTaskId = metadata.value(QStringLiteral("task_id")).toString().trimmed();
+    if (!taskId.trimmed().isEmpty() && eventTaskId == taskId.trimmed()) {
+        return true;
+    }
+
+    if (metadata.value(QStringLiteral("session_key")).toString().trimmed() != sessionKey.trimmed()) {
+        return false;
+    }
+
+    const QString eventChannel = metadata.value(QStringLiteral("channel")).toString().trimmed();
+    if (!eventChannel.isEmpty() && eventChannel != channel.trimmed()) {
+        return false;
+    }
+
+    const QString category = event.value(QStringLiteral("category")).toString().trimmed().toLower();
+    return category == QStringLiteral("task") ||
+           category == QStringLiteral("tool") ||
+           category == QStringLiteral("security") ||
+           category == QStringLiteral("skill") ||
+           category == QStringLiteral("cluster");
+}
+
+QString pendingChatContent(const QVariantList &trace) {
+    if (trace.isEmpty()) {
+        return QStringLiteral("正在思考,等待模型返回...");
+    }
+
+    const QVariantMap latest = trace.constLast().toMap();
+    const QString category = latest.value(QStringLiteral("category")).toString().trimmed();
+    const QString message = latest.value(QStringLiteral("message")).toString().trimmed();
+    if (message.isEmpty()) {
+        return QStringLiteral("正在思考,等待模型返回...");
+    }
+    if (category.isEmpty()) {
+        return QStringLiteral("处理中: %1").arg(message);
+    }
+    return QStringLiteral("处理中 [%1]: %2").arg(category, message);
+}
+
+QString extractBodyHtml(const QString &htmlDocument) {
+    QRegularExpression bodyPattern("<body[^>]*>(.*)</body>",
+                                   QRegularExpression::DotMatchesEverythingOption);
+    const QRegularExpressionMatch match = bodyPattern.match(htmlDocument);
+    return match.hasMatch() ? match.captured(1).trimmed() : htmlDocument.trimmed();
+}
+
+QString markdownToHtmlFragment(const QString &text) {
+    QTextDocument doc;
+    doc.setDocumentMargin(0);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+    doc.setMarkdown(text);
+#else
+    doc.setPlainText(text);
+#endif
+    QString html = extractBodyHtml(doc.toHtml());
+    html.replace("<p>", "<p style=\"margin:0 0 12px 0;\">");
+    html.replace("<pre>",
+                 "<pre style=\"margin:12px 0; padding:14px 16px; border-radius:14px; "
+                 "background:#101826; color:#F8FAFC; white-space:pre-wrap;\">");
+    html.replace("<code>",
+                 "<code style=\"background:rgba(34,211,238,0.12); color:#67E8F9; "
+                 "padding:2px 6px; border-radius:6px;\">");
+    html.replace("<blockquote>",
+                 "<blockquote style=\"margin:12px 0; padding:0 0 0 14px; "
+                 "border-left:3px solid rgba(34,211,238,0.55); color:#94A3B8;\">");
+    return html;
+}
+
+#ifdef Q_OS_WIN
+HWND nativeWindowHandle(QWindow *window) {
+    return window ? reinterpret_cast<HWND>(window->winId()) : nullptr;
+}
+#endif
+
+bool isMaximizedWindow(QWindow *window) {
+    if (!window) {
+        return false;
+    }
+#ifdef Q_OS_WIN
+    if (HWND hwnd = nativeWindowHandle(window)) {
+        return IsZoomed(hwnd) != FALSE;
+    }
+#endif
+    return (window->windowState() & Qt::WindowMaximized);
+}
+
+bool isReasonableScreenCoordinate(int value) {
+    return value > -100000 && value < 100000;
+}
+
+QString coreRefreshStepName(int step) {
+    switch (step) {
+    case 0:
+        return QStringLiteral("statusSnapshot");
+    case 1:
+        return QStringLiteral("recentTasks");
+    case 2:
+        return QStringLiteral("recentEvents");
+    case 3:
+        return QStringLiteral("recentNodes");
+    case 4:
+        return QStringLiteral("resourceSummary");
+    default:
+        return QStringLiteral("unknown");
+    }
+}
+
+void logListRefreshStage(const QString &phase, const QString &step, int count, qint64 elapsedMs) {
+    qInfo().noquote() << QStringLiteral("%1 %2 completed in %3 ms (%4 items)")
+                             .arg(phase, step)
+                             .arg(elapsedMs)
+                             .arg(count);
+}
+
+} // namespace
+
+StudioBridge::StudioBridge(const QString &initialPage, QObject *parent)
+    : QObject(parent),
+      m_initialPage(initialPage.trimmed().isEmpty() ? QStringLiteral("overview") : initialPage.trimmed().toLower()) {
+    m_config = config::ConfigLoader::load();
+    m_configMap = m_config.toJson().toVariantMap();
+    m_delegationRoutePreview = emptyDelegationRoutePreview();
+
+    connect(&m_refreshTimer, &QTimer::timeout, this, &StudioBridge::refreshAll);
+    m_refreshTimer.setInterval(30000); // 30 seconds adaptive heartbeat/watchdog
+
+    QString fallbackReason;
+    rebuildStudioBackend(m_config, &fallbackReason);
+
+    connect(&m_chatWatcher, &QFutureWatcher<StudioChatTurnResult>::finished,
+            this, &StudioBridge::handleChatFinished);
+    connect(&m_chatProgressTimer, &QTimer::timeout,
+            this, &StudioBridge::updateChatProgress);
+    connect(&m_coreRefreshWatcher, &QFutureWatcher<QVariantMap>::finished,
+            this, &StudioBridge::handleCoreRefreshFinished);
+    connect(&m_deferredRefreshWatcher, &QFutureWatcher<QVariantMap>::finished,
+            this, &StudioBridge::handleDeferredRefreshFinished);
+    connect(&m_delegationRoutePreviewWatcher, &QFutureWatcher<QVariantMap>::finished,
+            this, &StudioBridge::handleDelegationRoutePreviewFinished);
+    connect(&m_workspaceInitWatcher, &QFutureWatcher<WorkspaceInitializationResult>::finished,
+            this, &StudioBridge::handleWorkspaceInitializationFinished);
+    m_chatProgressTimer.setInterval(500); // 500ms AI stream updates
+
+    // Set up QFileSystemWatcher to achieve immediate event-driven UI updates
+    m_fileWatcherDebounceTimer.setInterval(500); // 500ms debounce
+    m_fileWatcherDebounceTimer.setSingleShot(true);
+    connect(&m_fileWatcherDebounceTimer, &QTimer::timeout, this, &StudioBridge::refreshAll);
+
+    const QString workspace = m_config.workspacePath();
+    QDir().mkpath(workspace + QStringLiteral("/runtime"));
+    const QStringList filesToWatch = {
+        workspace + QStringLiteral("/runtime/tasks.json"),
+        workspace + QStringLiteral("/runtime/events.jsonl"),
+        workspace + QStringLiteral("/runtime/approvals.json"),
+        workspace + QStringLiteral("/runtime/notifications.json")
+    };
+    bool watcherSuccessful = true;
+    for (const QString &filePath : filesToWatch) {
+        QFile file(filePath);
+        if (!file.exists()) {
+            if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                if (filePath.endsWith(QStringLiteral("tasks.json"))) {
+                    file.write("{\"tasks\":[]}");
+                } else if (filePath.endsWith(QStringLiteral("approvals.json"))) {
+                    file.write("{\"approvals\":[]}");
+                } else if (filePath.endsWith(QStringLiteral("notifications.json"))) {
+                    file.write("{\"notifications\":[]}");
+                }
+                file.close();
+            }
+        }
+        if (!m_fileWatcher.addPath(filePath)) {
+            watcherSuccessful = false;
+        }
+    }
+    m_useTimerFallback = !watcherSuccessful || m_fileWatcher.files().isEmpty();
+    if (m_useTimerFallback) {
+        qInfo().noquote() << "StudioBridge QFileSystemWatcher is not fully available; falling back to periodic timer polling.";
+    } else {
+        qInfo().noquote() << "StudioBridge QFileSystemWatcher successfully attached to all database files. Periodic idle polling is disabled.";
+    }
+    connect(&m_fileWatcher, &QFileSystemWatcher::fileChanged, this, &StudioBridge::handleFileChanged);
+}
+
+StudioBridge::~StudioBridge() {
+    m_refreshTimer.stop();
+    if (m_chatWatcher.isRunning()) {
+        m_chatWatcher.waitForFinished();
+    }
+    if (m_coreRefreshWatcher.isRunning()) {
+        m_coreRefreshWatcher.waitForFinished();
+    }
+    if (m_deferredRefreshWatcher.isRunning()) {
+        m_deferredRefreshWatcher.waitForFinished();
+    }
+    if (m_delegationRoutePreviewWatcher.isRunning()) {
+        m_delegationRoutePreviewWatcher.waitForFinished();
+    }
+    if (m_workspaceInitWatcher.isRunning()) {
+        m_workspaceInitWatcher.waitForFinished();
+    }
+    const QStringList keys = m_oauthSessions.keys();
+    for (const QString &providerId : keys) {
+        closeOAuthSession(providerId);
+    }
+}
+
+void StudioBridge::attachWindow(QWindow *window) {
+    m_window = window;
+}
+
+QVariantMap StudioBridge::status() const { return m_status; }
+QVariantMap StudioBridge::config() const { return m_configMap; }
+QVariantMap StudioBridge::resourceSummary() const { return m_resourceSummary; }
+QVariantList StudioBridge::tasks() const { return m_tasks; }
+QVariantList StudioBridge::events() const { return m_events; }
+QVariantList StudioBridge::nodes() const { return m_nodes; }
+QVariantList StudioBridge::approvals() const { return m_approvals; }
+QVariantList StudioBridge::notifications() const { return m_notifications; }
+QVariantList StudioBridge::resources() const { return m_resources; }
+QVariantList StudioBridge::automations() const { return m_automations; }
+QVariantMap StudioBridge::delegationRoutePreview() const { return m_delegationRoutePreview; }
+QVariantList StudioBridge::automationRuns() const { return m_automationRuns; }
+QVariantList StudioBridge::plugins() const { return m_plugins; }
+QVariantList StudioBridge::skills() const { return m_skills; }
+QVariantList StudioBridge::extensionCatalog() const { return m_extensionCatalog; }
+QVariantList StudioBridge::chatHistory() const { return m_chatHistory; }
+bool StudioBridge::busy() const { return m_busy; }
+bool StudioBridge::saveInProgress() const { return m_saveInProgress; }
+int StudioBridge::saveProgress() const { return m_saveProgress; }
+QString StudioBridge::saveMessage() const { return m_saveMessage; }
+int StudioBridge::startupProgress() const { return m_startupProgress; }
+QString StudioBridge::startupMessage() const { return m_startupMessage; }
+qint64 StudioBridge::startupElapsedMs() const { return m_startupElapsedMs; }
+qint64 StudioBridge::startupStepElapsedMs() const { return m_startupStepElapsedMs; }
+QVariantList StudioBridge::startupTimeline() const { return m_startupTimeline; }
+bool StudioBridge::startupCanLoadMain() const { return m_startupCanLoadMain; }
+bool StudioBridge::startupComplete() const { return m_startupComplete; }
+QString StudioBridge::initialPage() const { return m_initialPage; }
+
+void StudioBridge::requestRefresh() {
+    refreshAll();
+
+    if (m_manualRefreshToastPending) {
+        emit toastRequested(QStringLiteral("正在同步状态"),
+                            QStringLiteral("刷新请求已排队,完成后会继续更新总览卡片."),
+                            QStringLiteral("neutral"));
+        return;
+    }
+
+    m_manualRefreshToastPending = true;
+    emit toastRequested(QStringLiteral("正在同步状态"),
+                        QStringLiteral("正在刷新工作区摘要和运行时快照."),
+                        QStringLiteral("neutral"));
+}
+
+void StudioBridge::beginStartup() {
+    qInfo().noquote() << "StudioBridge beginStartup queued staged bootstrap";
+    m_mainUiLoaded = false;
+    m_startupDataRefreshScheduled = false;
+    m_startupBootstrapFinished = false;
+    m_startupCoreRefreshStarted = false;
+    m_startupDeferredRefreshStarted = false;
+    m_startupComplete = false;
+    m_startupElapsedMs = 0;
+    m_startupStepElapsedMs = 0;
+    m_startupTimeline.clear();
+    m_startupStartedAtMs = QDateTime::currentMSecsSinceEpoch();
+    m_startupLastTransitionAtMs = m_startupStartedAtMs;
+    setStartupCanLoadMain(false);
+    setStartupState(4, QStringLiteral("正在准备工作台 / Preparing console"));
+    QTimer::singleShot(90, this, [this]() {
+        qInfo().noquote() << "StudioBridge startup stage: loading config from disk";
+        m_config = config::ConfigLoader::load();
+        m_configMap = m_config.toJson().toVariantMap();
+        emit configChanged();
+        qInfo().noquote() << QStringLiteral("StudioBridge startup config ready; workspace=%1 runtimeMode=%2")
+                                 .arg(m_config.workspacePath(), m_config.normalizedRuntimeMode());
+        setStartupState(18, QStringLiteral("正在加载配置与凭据 / Loading configuration"));
+    });
+    QTimer::singleShot(260, this, [this]() {
+        qInfo().noquote() << "StudioBridge startup stage: queuing core refresh until Main.qml is loaded";
+        setStartupState(42, QStringLiteral("正在同步运行时状态 / Syncing runtime state"));
+    });
+    QTimer::singleShot(520, this, [this]() {
+        qInfo().noquote() << "StudioBridge startup stage: preparing first frame";
+        setStartupCanLoadMain(true);
+        setStartupState(68, QStringLiteral("正在准备首屏内容 / Preparing first frame"));
+    });
+    QTimer::singleShot(790, this, [this]() {
+        qInfo().noquote() << "StudioBridge startup stage: linking background services";
+        setStartupState(86, QStringLiteral("正在连接后台服务 / Linking background services"));
+    });
+    QTimer::singleShot(1080, this, [this]() {
+        m_startupBootstrapFinished = true;
+        setStartupState(92, QStringLiteral("正在同步实时数据 / Syncing live data"));
+        qInfo().noquote() << "StudioBridge startup bootstrap stages finished; waiting for Main.qml and initial refreshes";
+        scheduleStartupDataRefreshes();
+    });
+}
+
+void StudioBridge::noteMainUiLoaded() {
+    if (m_mainUiLoaded) {
+        return;
+    }
+
+    m_mainUiLoaded = true;
+    qInfo().noquote() << "StudioBridge main QML reported loaded";
+    scheduleStartupDataRefreshes();
+}
+
+void StudioBridge::scheduleStartupDataRefreshes() {
+    if (!m_startupBootstrapFinished || !m_mainUiLoaded || m_startupDataRefreshScheduled) {
+        return;
+    }
+
+    m_startupDataRefreshScheduled = true;
+    m_startupCoreRefreshStarted = true;
+    m_startupDeferredRefreshStarted = false;
+    qInfo().noquote() << "StudioBridge automatic refresh timer paused while stabilizing QML models";
+    qInfo().noquote() << "StudioBridge starting core refresh after Main.qml load";
+    refreshCoreData();
+    QTimer::singleShot(220, this, [this]() {
+        m_startupDeferredRefreshStarted = true;
+        qInfo().noquote() << "StudioBridge starting deferred refresh after Main.qml load";
+        refreshDeferredData();
+    });
+}
+
+void StudioBridge::refreshAll() {
+    const bool startupDiagnostics = !m_startupComplete || !m_refreshTimer.isActive();
+    if (m_chatWatcher.isRunning()) {
+        m_coreRefreshQueued = true;
+        m_deferredRefreshQueued = true;
+        qInfo().noquote() << "StudioBridge refreshAll deferred while chat turn is running";
+        return;
+    }
+    if (startupDiagnostics) {
+        qInfo().noquote() << "StudioBridge refreshAll requested during startup stabilization";
+    }
+    m_config = config::ConfigLoader::load();
+    m_configMap = m_config.toJson().toVariantMap();
+    emit configChanged();
+
+    refreshCoreData();
+    refreshDeferredData();
+}
+
+void StudioBridge::refreshCoreData() {
+    if (m_chatWatcher.isRunning()) {
+        m_coreRefreshQueued = true;
+        qInfo().noquote() << "StudioBridge core refresh deferred while chat turn is running";
+        return;
+    }
+
+    if (m_coreRefreshRunning) {
+        m_coreRefreshQueued = true;
+        if (!m_startupComplete || !m_refreshTimer.isActive()) {
+            qInfo().noquote() << "StudioBridge core refresh already running; queued another pass";
+        }
+        return;
+    }
+
+    m_coreRefreshRunning = true;
+    m_coreRefreshQueued = false;
+    m_coreRefreshStep = 0;
+    const bool startupDiagnostics = !m_startupComplete || !m_refreshTimer.isActive();
+    if (startupDiagnostics) {
+        qInfo().noquote() << "StudioBridge core refresh dispatched to background worker";
+    }
+
+    // Run all core refresh steps in a background thread to avoid blocking the
+    // main thread on statusSnapshot() network probes (runtime/control/memory).
+    m_coreRefreshWatcher.setFuture(QtConcurrent::run([this, startupDiagnostics]() {
+        QVariantMap result;
+        QElapsedTimer timer;
+        timer.start();
+
+        {
+            QMutexLocker locker(&m_backendMutex);
+            if (!m_backend) {
+                result.insert(QStringLiteral("missing"), true);
+                return result;
+            }
+            result.insert(QStringLiteral("status"), m_backend->status());
+            result.insert(QStringLiteral("tasks"),
+                          QVariant::fromValue(m_backend->recentTasks(24)));
+            result.insert(QStringLiteral("events"),
+                          QVariant::fromValue(m_backend->recentEvents(80)));
+            result.insert(QStringLiteral("nodes"),
+                          QVariant::fromValue(m_backend->recentNodes(48, false)));
+            result.insert(QStringLiteral("resourceSummary"), m_backend->resourceSummary());
+        }
+
+        if (startupDiagnostics) {
+            qInfo().noquote() << QStringLiteral("StudioBridge core refresh completed in %1 ms")
+                                     .arg(timer.elapsed());
+        }
+        return result;
+    }));
+}
+
+void StudioBridge::runNextCoreRefreshStep() {
+    if (!m_coreRefreshRunning) {
+        return;
+    }
+
+    const bool startupDiagnostics = !m_startupComplete || !m_refreshTimer.isActive();
+    const QString stepName = coreRefreshStepName(m_coreRefreshStep);
+    QElapsedTimer timer;
+    timer.start();
+
+    if (!m_backendMutex.tryLock()) {
+        if (startupDiagnostics) {
+            qInfo().noquote() << QStringLiteral("StudioBridge core refresh %1 postponed; runtime busy with active task")
+                                     .arg(stepName);
+        }
+        QTimer::singleShot(120, this, &StudioBridge::runNextCoreRefreshStep);
+        return;
+    }
+
+    switch (m_coreRefreshStep) {
+    case 0: {
+        QVariantMap nextStatus;
+        if (!m_backend) {
+            m_backendMutex.unlock();
+            finishCoreRefresh();
+            return;
+        }
+        nextStatus = m_backend->status();
+        m_status = nextStatus;
+        emit statusChanged();
+        if (startupDiagnostics) {
+            qInfo().noquote() << QStringLiteral("StudioBridge core refresh %1 completed in %2 ms (runtimeMode=%3 backend=%4)")
+                                     .arg(stepName)
+                                     .arg(timer.elapsed())
+                                     .arg(m_status.value(QStringLiteral("runtimeMode")).toString(),
+                                          m_status.value(QStringLiteral("actualBackend")).toString());
+        }
+        break;
+    }
+    case 1: {
+        QVariantList nextTasks;
+        if (!m_backend) {
+            m_backendMutex.unlock();
+            finishCoreRefresh();
+            return;
+        }
+        nextTasks = m_backend->recentTasks(24);
+        m_tasks = nextTasks;
+        emit tasksChanged();
+        if (startupDiagnostics) {
+            logListRefreshStage(QStringLiteral("StudioBridge core refresh"),
+                                stepName,
+                                m_tasks.size(),
+                                timer.elapsed());
+        }
+        break;
+    }
+    case 2: {
+        QVariantList nextEvents;
+        if (!m_backend) {
+            m_backendMutex.unlock();
+            finishCoreRefresh();
+            return;
+        }
+        nextEvents = m_backend->recentEvents(80);
+        m_events = nextEvents;
+        emit eventsChanged();
+        if (startupDiagnostics) {
+            logListRefreshStage(QStringLiteral("StudioBridge core refresh"),
+                                stepName,
+                                m_events.size(),
+                                timer.elapsed());
+        }
+        break;
+    }
+    case 3: {
+        QVariantList nextNodes;
+        if (!m_backend) {
+            m_backendMutex.unlock();
+            finishCoreRefresh();
+            return;
+        }
+        nextNodes = m_backend->recentNodes(48, false);
+        m_nodes = nextNodes;
+        emit nodesChanged();
+        if (startupDiagnostics) {
+            logListRefreshStage(QStringLiteral("StudioBridge core refresh"),
+                                stepName,
+                                m_nodes.size(),
+                                timer.elapsed());
+        }
+        break;
+    }
+    case 4: {
+        QVariantMap nextSummary;
+        if (!m_backend) {
+            m_backendMutex.unlock();
+            finishCoreRefresh();
+            return;
+        }
+        nextSummary = m_backend->resourceSummary();
+        m_resourceSummary = nextSummary;
+        emit resourceSummaryChanged();
+        if (startupDiagnostics) {
+            qInfo().noquote() << QStringLiteral("StudioBridge core refresh %1 completed in %2 ms (totalResources=%3)")
+                                     .arg(stepName)
+                                     .arg(timer.elapsed())
+                                     .arg(m_resourceSummary.value(QStringLiteral("totalCount")).toInt());
+        }
+        m_backendMutex.unlock();
+        finishCoreRefresh();
+        return;
+    }
+    default:
+        m_backendMutex.unlock();
+        finishCoreRefresh();
+        return;
+    }
+
+    m_backendMutex.unlock();
+    ++m_coreRefreshStep;
+    QTimer::singleShot(0, this, &StudioBridge::runNextCoreRefreshStep);
+}
+
+void StudioBridge::finishCoreRefresh() {
+    const bool startupDiagnostics = !m_startupComplete || !m_refreshTimer.isActive();
+    m_coreRefreshRunning = false;
+    m_coreRefreshStep = 0;
+
+    if (startupDiagnostics) {
+        qInfo().noquote() << "StudioBridge core refresh finished";
+    }
+
+    if (m_coreRefreshQueued) {
+        m_coreRefreshQueued = false;
+        if (startupDiagnostics) {
+            qInfo().noquote() << "StudioBridge core refresh draining queued pass";
+        }
+        refreshCoreData();
+        return;
+    }
+
+    if (m_startupDataRefreshScheduled && !m_startupComplete && m_startupProgress < 96) {
+        setStartupState(96, QStringLiteral("核心状态已同步 / Finalizing startup"));
+    }
+
+    tryFinalizeStartup();
+    maybeCompleteSave();
+    maybeCompleteManualRefreshToast();
+
+    // Daemon/remote reconnect: if the config requests daemon or remote but the
+    // current status shows an empty runtimeMode (facade returned nothing), the
+    // sidecar may have exited. Attempt a silent backend rebuild every other
+    // refresh cycle to avoid hammering the spawn path.
+    if (m_startupComplete && !m_chatWatcher.isRunning()) {
+        const QString configuredMode = m_config.normalizedRuntimeMode();
+        const QString activeMode = m_status.value(QStringLiteral("runtimeMode")).toString().trimmed();
+        const bool wantsSidecar = (configuredMode == QStringLiteral("daemon") ||
+                                   configuredMode == QStringLiteral("remote"));
+        const bool sidecarLost = wantsSidecar && activeMode.isEmpty();
+        if (sidecarLost) {
+            ++m_daemonReconnectAttempts;
+            // Try every other cycle (~14 s) to avoid hammering spawn.
+            if (m_daemonReconnectAttempts % 2 == 1) {
+                QString fallbackReason;
+                const bool rebuilt = rebuildStudioBackend(m_config, &fallbackReason);
+                if (rebuilt && fallbackReason.isEmpty()) {
+                    m_daemonReconnectAttempts = 0;
+                    qInfo().noquote() << QStringLiteral("StudioBridge reconnected to %1 sidecar").arg(configuredMode);
+                    emit toastRequested(QStringLiteral("运行时已恢复"),
+                                        QStringLiteral("已重新连接到 %1 sidecar").arg(configuredMode),
+                                        QStringLiteral("success"));
+                } else {
+                    qWarning().noquote() << QStringLiteral("StudioBridge %1 sidecar reconnect attempt %2 failed: %3")
+                                                .arg(configuredMode)
+                                                .arg(m_daemonReconnectAttempts)
+                                                .arg(fallbackReason);
+                    if (m_daemonReconnectAttempts == 1) {
+                        // Only toast on first failure to avoid spamming.
+                        emit toastRequested(QStringLiteral("运行时连接中断"),
+                                            fallbackReason.isEmpty()
+                                                ? QStringLiteral("%1 sidecar 无法连接，正在重试…").arg(configuredMode)
+                                                : fallbackReason,
+                                            QStringLiteral("warning"));
+                    }
+                }
+            }
+        } else {
+            m_daemonReconnectAttempts = 0;
+        }
+    }
+}
+
+void StudioBridge::refreshDeferredData() {
+    if (m_chatWatcher.isRunning()) {
+        m_deferredRefreshQueued = true;
+        qInfo().noquote() << "StudioBridge deferred refresh deferred while chat turn is running";
+        return;
+    }
+
+    if (m_deferredRefreshRunning) {
+        m_deferredRefreshQueued = true;
+        if (!m_startupComplete || !m_refreshTimer.isActive()) {
+            qInfo().noquote() << "StudioBridge deferred refresh already running; queued another pass";
+        }
+        return;
+    }
+
+    m_deferredRefreshRunning = true;
+    m_deferredRefreshQueued = false;
+    const config::Config configSnapshot = m_config;
+    const bool startupDiagnostics = !m_startupComplete || !m_refreshTimer.isActive();
+    if (startupDiagnostics) {
+        qInfo().noquote() << "StudioBridge deferred refresh dispatched to background worker";
+    }
+    m_deferredRefreshWatcher.setFuture(QtConcurrent::run([this, configSnapshot, startupDiagnostics]() {
+        QVariantMap payload;
+
+        {
+            QElapsedTimer timer;
+            timer.start();
+            QMutexLocker locker(&m_backendMutex);
+            if (!m_backend) {
+                payload.insert(QStringLiteral("runtimeMissing"), true);
+                return payload;
+            }
+            payload.insert(QStringLiteral("approvals"),
+                           m_backend->recentApprovals(60, QString()));
+            if (startupDiagnostics) {
+                logListRefreshStage(QStringLiteral("StudioBridge deferred refresh"),
+                                    QStringLiteral("recentApprovals"),
+                                    payload.value(QStringLiteral("approvals")).toList().size(),
+                                    timer.elapsed());
+            }
+        }
+
+        {
+            QElapsedTimer timer;
+            timer.start();
+            QMutexLocker locker(&m_backendMutex);
+            if (!m_backend) {
+                payload.insert(QStringLiteral("runtimeMissing"), true);
+                return payload;
+            }
+            payload.insert(QStringLiteral("notifications"),
+                           m_backend->recentNotifications(60, false));
+            if (startupDiagnostics) {
+                logListRefreshStage(QStringLiteral("StudioBridge deferred refresh"),
+                                    QStringLiteral("recentNotifications"),
+                                    payload.value(QStringLiteral("notifications")).toList().size(),
+                                    timer.elapsed());
+            }
+        }
+
+        {
+            QElapsedTimer timer;
+            timer.start();
+            QMutexLocker locker(&m_backendMutex);
+            if (!m_backend) {
+                payload.insert(QStringLiteral("runtimeMissing"), true);
+                return payload;
+            }
+            payload.insert(QStringLiteral("resources"),
+                           m_backend->recentResources(120, QString()));
+            if (startupDiagnostics) {
+                logListRefreshStage(QStringLiteral("StudioBridge deferred refresh"),
+                                    QStringLiteral("recentResources"),
+                                    payload.value(QStringLiteral("resources")).toList().size(),
+                                    timer.elapsed());
+            }
+        }
+
+        {
+            QElapsedTimer timer;
+            timer.start();
+            QMutexLocker locker(&m_backendMutex);
+            if (!m_backend) {
+                payload.insert(QStringLiteral("runtimeMissing"), true);
+                return payload;
+            }
+            payload.insert(QStringLiteral("automations"),
+                           m_backend->automations(120));
+            if (startupDiagnostics) {
+                logListRefreshStage(QStringLiteral("StudioBridge deferred refresh"),
+                                    QStringLiteral("automations"),
+                                    payload.value(QStringLiteral("automations")).toList().size(),
+                                    timer.elapsed());
+            }
+        }
+
+        {
+            QElapsedTimer timer;
+            timer.start();
+            QMutexLocker locker(&m_backendMutex);
+            if (!m_backend) {
+                payload.insert(QStringLiteral("runtimeMissing"), true);
+                return payload;
+            }
+            payload.insert(QStringLiteral("automationRuns"),
+                           m_backend->automationRuns(180));
+            if (startupDiagnostics) {
+                logListRefreshStage(QStringLiteral("StudioBridge deferred refresh"),
+                                    QStringLiteral("automationRuns"),
+                                    payload.value(QStringLiteral("automationRuns")).toList().size(),
+                                    timer.elapsed());
+            }
+        }
+
+        {
+            QElapsedTimer timer;
+            timer.start();
+            QMutexLocker locker(&m_backendMutex);
+            if (!m_backend) {
+                payload.insert(QStringLiteral("runtimeMissing"), true);
+                return payload;
+            }
+            payload.insert(QStringLiteral("plugins"),
+                           m_backend->plugins());
+            if (startupDiagnostics) {
+                logListRefreshStage(QStringLiteral("StudioBridge deferred refresh"),
+                                    QStringLiteral("plugins"),
+                                    payload.value(QStringLiteral("plugins")).toList().size(),
+                                    timer.elapsed());
+            }
+        }
+
+        {
+            QElapsedTimer timer;
+            timer.start();
+            QMutexLocker locker(&m_backendMutex);
+            if (!m_backend) {
+                payload.insert(QStringLiteral("runtimeMissing"), true);
+                return payload;
+            }
+            payload.insert(QStringLiteral("skills"),
+                           m_backend->skills());
+            if (startupDiagnostics) {
+                logListRefreshStage(QStringLiteral("StudioBridge deferred refresh"),
+                                    QStringLiteral("skills"),
+                                    payload.value(QStringLiteral("skills")).toList().size(),
+                                    timer.elapsed());
+            }
+        }
+
+        {
+            QElapsedTimer timer;
+            timer.start();
+            QMutexLocker locker(&m_backendMutex);
+            if (!m_backend) {
+                payload.insert(QStringLiteral("runtimeMissing"), true);
+                return payload;
+            }
+            payload.insert(QStringLiteral("extensionCatalog"),
+                           m_backend->extensionCatalog(configSnapshot));
+            if (startupDiagnostics) {
+                logListRefreshStage(QStringLiteral("StudioBridge deferred refresh"),
+                                    QStringLiteral("extensionCatalog"),
+                                    payload.value(QStringLiteral("extensionCatalog")).toList().size(),
+                                    timer.elapsed());
+            }
+        }
+        payload.insert(QStringLiteral("runtimeMissing"), false);
+        return payload;
+    }));
+}
+
+void StudioBridge::handleCoreRefreshFinished() {
+    const QVariantMap result = m_coreRefreshWatcher.result();
+    if (!result.value(QStringLiteral("missing")).toBool()) {
+        m_status = result.value(QStringLiteral("status")).toMap();
+        emit statusChanged();
+
+        m_tasks = result.value(QStringLiteral("tasks")).toList();
+        emit tasksChanged();
+
+        m_events = result.value(QStringLiteral("events")).toList();
+        emit eventsChanged();
+
+        m_nodes = result.value(QStringLiteral("nodes")).toList();
+        emit nodesChanged();
+
+        m_resourceSummary = result.value(QStringLiteral("resourceSummary")).toMap();
+        emit resourceSummaryChanged();
+    }
+    finishCoreRefresh();
+}
+
+void StudioBridge::handleDeferredRefreshFinished() {
+    const QVariantMap payload = m_deferredRefreshWatcher.result();
+    const bool startupDiagnostics = !m_startupComplete || !m_refreshTimer.isActive();
+    if (!payload.value(QStringLiteral("runtimeMissing")).toBool()) {
+        m_approvals = payload.value(QStringLiteral("approvals")).toList();
+        emit approvalsChanged();
+
+        m_notifications = payload.value(QStringLiteral("notifications")).toList();
+        emit notificationsChanged();
+
+        m_resources = payload.value(QStringLiteral("resources")).toList();
+        emit resourcesChanged();
+
+        m_automations = payload.value(QStringLiteral("automations")).toList();
+        emit automationsChanged();
+
+        m_automationRuns = payload.value(QStringLiteral("automationRuns")).toList();
+        emit automationRunsChanged();
+
+        m_plugins = payload.value(QStringLiteral("plugins")).toList();
+        emit pluginsChanged();
+
+        m_skills = payload.value(QStringLiteral("skills")).toList();
+        emit skillsChanged();
+
+        m_extensionCatalog = payload.value(QStringLiteral("extensionCatalog")).toList();
+        emit extensionCatalogChanged();
+    }
+
+    if (payload.value(QStringLiteral("runtimeMissing")).toBool()) {
+        qWarning().noquote() << "StudioBridge deferred refresh completed with missing runtime facade";
+    } else if (startupDiagnostics) {
+        qInfo().noquote() << QStringLiteral("StudioBridge deferred refresh completed (approvals=%1 notifications=%2 resources=%3 automations=%4 automationRuns=%5 plugins=%6 skills=%7 catalog=%8)")
+                                 .arg(m_approvals.size())
+                                 .arg(m_notifications.size())
+                                 .arg(m_resources.size())
+                                 .arg(m_automations.size())
+                                 .arg(m_automationRuns.size())
+                                 .arg(m_plugins.size())
+                                 .arg(m_skills.size())
+                                 .arg(m_extensionCatalog.size());
+    }
+    finishDeferredRefresh();
+    if (m_useTimerFallback && !m_refreshTimer.isActive() && !m_chatWatcher.isRunning()) {
+        m_refreshTimer.start();
+        qInfo().noquote() << "StudioBridge automatic refresh timer resumed (fallback mode)";
+    }
+}
+
+void StudioBridge::runNextDeferredRefreshStep() {
+    if (!m_deferredRefreshRunning) {
+        return;
+    }
+
+    switch (m_deferredRefreshStep) {
+    case 0: {
+        QVariantList nextApprovals;
+        {
+            QMutexLocker locker(&m_backendMutex);
+            if (!m_backend) {
+                finishDeferredRefresh();
+                return;
+            }
+            nextApprovals = m_backend->recentApprovals(60, QString());
+        }
+        m_approvals = nextApprovals;
+        emit approvalsChanged();
+        break;
+    }
+    case 1: {
+        QVariantList nextNotifications;
+        {
+            QMutexLocker locker(&m_backendMutex);
+            if (!m_backend) {
+                finishDeferredRefresh();
+                return;
+            }
+            nextNotifications = m_backend->recentNotifications(60, false);
+        }
+        m_notifications = nextNotifications;
+        emit notificationsChanged();
+        break;
+    }
+    case 2: {
+        QVariantList nextResources;
+        {
+            QMutexLocker locker(&m_backendMutex);
+            if (!m_backend) {
+                finishDeferredRefresh();
+                return;
+            }
+            nextResources = m_backend->recentResources(120, QString());
+        }
+        m_resources = nextResources;
+        emit resourcesChanged();
+        break;
+    }
+    case 3: {
+        QVariantList nextAutomations;
+        {
+            QMutexLocker locker(&m_backendMutex);
+            if (!m_backend) {
+                finishDeferredRefresh();
+                return;
+            }
+            nextAutomations = m_backend->automations(120);
+        }
+        m_automations = nextAutomations;
+        emit automationsChanged();
+        break;
+    }
+    case 4: {
+        QVariantList nextAutomationRuns;
+        {
+            QMutexLocker locker(&m_backendMutex);
+            if (!m_backend) {
+                finishDeferredRefresh();
+                return;
+            }
+            nextAutomationRuns = m_backend->automationRuns(180);
+        }
+        m_automationRuns = nextAutomationRuns;
+        emit automationRunsChanged();
+        break;
+    }
+    case 5: {
+        QVariantList nextPlugins;
+        {
+            QMutexLocker locker(&m_backendMutex);
+            if (!m_backend) {
+                finishDeferredRefresh();
+                return;
+            }
+            nextPlugins = m_backend->plugins();
+        }
+        m_plugins = nextPlugins;
+        emit pluginsChanged();
+        break;
+    }
+    case 6: {
+        QVariantList nextSkills;
+        {
+            QMutexLocker locker(&m_backendMutex);
+            if (!m_backend) {
+                finishDeferredRefresh();
+                return;
+            }
+            nextSkills = m_backend->skills();
+        }
+        m_skills = nextSkills;
+        emit skillsChanged();
+        break;
+    }
+    case 7: {
+        QVariantList nextExtensionCatalog;
+        {
+            QMutexLocker locker(&m_backendMutex);
+            if (!m_backend) {
+                finishDeferredRefresh();
+                return;
+            }
+            nextExtensionCatalog = m_backend->extensionCatalog(m_config);
+        }
+        m_extensionCatalog = nextExtensionCatalog;
+        emit extensionCatalogChanged();
+        finishDeferredRefresh();
+        return;
+    }
+    default:
+        finishDeferredRefresh();
+        return;
+    }
+
+    ++m_deferredRefreshStep;
+    QTimer::singleShot(0, this, &StudioBridge::runNextDeferredRefreshStep);
+}
+
+void StudioBridge::finishDeferredRefresh() {
+    const bool startupDiagnostics = !m_startupComplete || !m_refreshTimer.isActive();
+    m_deferredRefreshRunning = false;
+    m_deferredRefreshStep = 0;
+
+    if (startupDiagnostics) {
+        qInfo().noquote() << "StudioBridge deferred refresh finished";
+    }
+
+    if (m_deferredRefreshQueued) {
+        m_deferredRefreshQueued = false;
+        if (startupDiagnostics) {
+            qInfo().noquote() << "StudioBridge deferred refresh draining queued pass";
+        }
+        refreshDeferredData();
+        return;
+    }
+
+    tryFinalizeStartup();
+    maybeCompleteSave();
+    maybeCompleteManualRefreshToast();
+}
+
+bool StudioBridge::saveConfig(const QVariantMap &configMap) {
+    if (m_saveInProgress) {
+        emit toastRequested(QStringLiteral("保存处理中"),
+                            QStringLiteral("上一轮配置保存还没有完成."),
+                            QStringLiteral("neutral"));
+        return false;
+    }
+
+    m_pendingSaveConfig = config::Config::fromJson(QJsonObject::fromVariantMap(configMap));
+    m_pendingSaveFallbackReason.clear();
+    m_pendingSaveFailureTitle.clear();
+    m_pendingSaveFailureBody.clear();
+    m_pendingSaveFailureTone = QStringLiteral("neutral");
+    m_saveStep = 0;
+    m_saveAwaitingRefresh = false;
+    m_saveResultOk = false;
+    setSaveState(true, 6, QStringLiteral("正在准备保存配置 / Preparing save"));
+    QTimer::singleShot(0, this, &StudioBridge::runNextSaveStep);
+    return true;
+}
+
+QVariantList StudioBridge::fetchProviderModels(const QString &providerId, const QVariantMap &configMap) {
+    config::Config cfg = config::Config::fromJson(QJsonObject::fromVariantMap(configMap));
+
+    std::shared_ptr<IStudioBackend> backend;
+    {
+        QMutexLocker locker(&m_backendMutex);
+        backend = m_backend;
+    }
+    if (!backend) {
+        emit toastRequested(QStringLiteral("模型读取失败"),
+                            QStringLiteral("runtime backend is not initialized"),
+                            QStringLiteral("warning"));
+        return {};
+    }
+
+    const QVariantMap result = backend->fetchProviderModels(cfg, m_config, providerId);
+    const QVariantList warnings = result.value(QStringLiteral("warnings")).toList();
+    for (const QVariant &warningValue : warnings) {
+        const QVariantMap warning = warningValue.toMap();
+        emit toastRequested(warning.value(QStringLiteral("title")).toString(),
+                            warning.value(QStringLiteral("body")).toString(),
+                            warning.value(QStringLiteral("tone"), QStringLiteral("warning")).toString());
+    }
+
+    if (!result.value(QStringLiteral("ok")).toBool()) {
+        const QString body = result.value(QStringLiteral("body")).toString().trimmed().isEmpty()
+            ? result.value(QStringLiteral("error"), QStringLiteral("无法同步模型列表.")).toString()
+            : result.value(QStringLiteral("body")).toString();
+        emit toastRequested(result.value(QStringLiteral("title"), QStringLiteral("模型读取失败")).toString(),
+                            body,
+                            result.value(QStringLiteral("tone"), QStringLiteral("warning")).toString());
+        return {};
+    }
+
+    if (result.value(QStringLiteral("configChanged")).toBool()) {
+        m_config = config::Config::fromJson(QJsonObject::fromVariantMap(result.value(QStringLiteral("config")).toMap()));
+        m_configMap = m_config.toJson().toVariantMap();
+        emit configChanged();
+        refreshAll();
+    }
+
+    const QVariantList out = result.value(QStringLiteral("models")).toList();
+    if (result.value(QStringLiteral("usedFallback")).toBool()) {
+        emit toastRequested(QStringLiteral("已使用内置模型列表"),
+                            QStringLiteral("该驱动没有返回实时模型目录,YAOS 已改用内置候选模型列表."),
+                            QStringLiteral("neutral"));
+    }
+
+    const QString normalized = result.value(QStringLiteral("providerId")).toString();
+    emit toastRequested(QStringLiteral("模型已同步"),
+                        QStringLiteral("驱动 %1 返回了 %2 个模型.").arg(normalized, QString::number(out.size())),
+                        QStringLiteral("success"));
+    return out;
+}
+
+QVariantMap StudioBridge::providerAuthStatus(const QString &providerId) {
+    const QString normalized = config::Config::normalizeProviderId(providerId);
+
+    // Keep the QML-facing status getter side-effect free and non-blocking.
+    // Provider cards call this while a Repeater is constructing delegates, and
+    // blocking on an active runtime refresh can freeze the UI during creation.
+    std::shared_ptr<IStudioBackend> backend;
+    if (!m_backendMutex.tryLock()) {
+        return QVariantMap{
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("pending"), true},
+            {QStringLiteral("error"), QStringLiteral("runtime backend is busy")},
+            {QStringLiteral("providerId"), normalized}
+        };
+    }
+    backend = m_backend;
+    m_backendMutex.unlock();
+    QVariantMap map = backend
+        ? backend->providerAuthStatus(m_config, normalized)
+        : QVariantMap{
+              {QStringLiteral("ok"), false},
+              {QStringLiteral("error"), QStringLiteral("runtime backend is not initialized")},
+              {QStringLiteral("providerId"), normalized}
+          };
+
+    // Overlay local browser OAuth session state (loopback listener, authUrl, etc.)
+    const auto it = m_oauthSessions.constFind(normalized);
+    if (it != m_oauthSessions.constEnd() && it.value()) {
+        const PendingOAuthSession *session = it.value().data();
+        map.insert(QStringLiteral("pending"), !session->complete);
+        map.insert(QStringLiteral("mode"), session->mode);
+        if (!session->authUrl.trimmed().isEmpty()) {
+            map.insert(QStringLiteral("authUrl"), session->authUrl);
+        }
+        if (!session->error.trimmed().isEmpty()) {
+            map.insert(QStringLiteral("error"), session->error);
+        }
+        if (session->complete) {
+            map.insert(QStringLiteral("pending"), false);
+            if (!session->success && map.value(QStringLiteral("error")).toString().trimmed().isEmpty()) {
+                map.insert(QStringLiteral("error"), QStringLiteral("OAuth login did not complete successfully."));
+            }
+        }
+        if (!it.value()->redirectUri.trimmed().isEmpty()) {
+            map.insert(QStringLiteral("redirectUri"), it.value()->redirectUri);
+        }
+        if (!it.value()->callbackUrl.trimmed().isEmpty()) {
+            map.insert(QStringLiteral("callbackUrl"), it.value()->callbackUrl);
+        }
+    }
+    return map;
+}
+
+QVariantMap StudioBridge::beginProviderOAuth(const QString &providerId, const QString &mode) {
+    return beginProviderOAuthWithConfig(providerId,
+                                        mode,
+                                        m_config.toJson().toVariantMap());
+}
+
+QVariantMap StudioBridge::beginProviderOAuthWithConfig(const QString &providerId,
+                                                       const QString &mode,
+                                                       const QVariantMap &configMap) {
+    const QString normalized = config::Config::normalizeProviderId(providerId);
+    config::Config nextConfig = config::Config::fromJson(QJsonObject::fromVariantMap(configMap));
+
+    closeOAuthSession(normalized);
+
+    const QString requestedMode = mode.trimmed().toLower();
+    std::shared_ptr<IStudioBackend> backend;
+    if (!m_backendMutex.tryLock()) {
+        emit toastRequested(QStringLiteral("OAuth failed"),
+                            QStringLiteral("runtime backend is busy"),
+                            QStringLiteral("warning"));
+        return QVariantMap{{QStringLiteral("ok"), false},
+                           {QStringLiteral("pending"), true},
+                           {QStringLiteral("error"), QStringLiteral("runtime backend is busy")},
+                           {QStringLiteral("providerId"), normalized}};
+    }
+    backend = m_backend;
+    m_backendMutex.unlock();
+    if (!backend) {
+        emit toastRequested(QStringLiteral("OAuth failed"),
+                            QStringLiteral("runtime backend is not initialized"),
+                            QStringLiteral("warning"));
+        return QVariantMap{{QStringLiteral("ok"), false},
+                           {QStringLiteral("error"), QStringLiteral("runtime backend is not initialized")},
+                           {QStringLiteral("providerId"), normalized}};
+    }
+
+    const QVariantMap capability = backend->providerAuthStatus(nextConfig, normalized);
+    if (requestedMode == QStringLiteral("browser")) {
+        if (!capability.value(QStringLiteral("browserSupported")).toBool()) {
+            const QString error = QStringLiteral("This provider does not support browser OAuth in YAOS yet.");
+            emit toastRequested(QStringLiteral("OAuth failed"),
+                                error,
+                                QStringLiteral("warning"));
+            return QVariantMap{{QStringLiteral("ok"), false},
+                               {QStringLiteral("error"), error},
+                               {QStringLiteral("providerId"), normalized},
+                               {QStringLiteral("browserSupported"), false}};
+        }
+
+        QSharedPointer<PendingOAuthSession> session(new PendingOAuthSession);
+        session->providerId = normalized;
+        session->mode = QStringLiteral("browser");
+        session->state = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        session->codeVerifier = QUuid::createUuid().toString(QUuid::WithoutBraces) +
+                                QUuid::createUuid().toString(QUuid::WithoutBraces);
+        session->listener.reset(new OAuthLoopbackServer(this));
+        if (!session->listener) {
+            emit toastRequested(QStringLiteral("OAuth failed"),
+                                QStringLiteral("Unable to allocate localhost callback listener."),
+                                QStringLiteral("warning"));
+            return QVariantMap{
+                {QStringLiteral("ok"), false},
+                {QStringLiteral("error"), QStringLiteral("Unable to allocate localhost callback listener.")}
+            };
+        }
+
+        QString listenError;
+        const bool listening = session->listener->listen(
+            [this, normalized](const QString &callbackUrl) -> OAuthLoopbackResponse {
+                OAuthLoopbackResponse response;
+                response.callbackUrl = callbackUrl;
+
+                auto current = m_oauthSessions.find(normalized);
+                if (current == m_oauthSessions.end() || !current.value()) {
+                    response.ok = false;
+                    response.error = QStringLiteral("OAuth session no longer exists.");
+                    response.body = QStringLiteral("The login session is no longer active in YAOS.");
+                    return response;
+                }
+
+                PendingOAuthSession *session = current.value().data();
+                session->callbackUrl = callbackUrl;
+
+                std::shared_ptr<IStudioBackend> backend;
+                {
+                    QMutexLocker locker(&m_backendMutex);
+                    backend = m_backend;
+                }
+                QVariantMap result = backend
+                    ? backend->completeProviderBrowserOAuth(normalized,
+                                                            session->redirectUri,
+                                                            session->state,
+                                                            session->codeVerifier,
+                                                            callbackUrl)
+                    : QVariantMap{
+                          {QStringLiteral("ok"), false},
+                          {QStringLiteral("error"), QStringLiteral("runtime backend is not initialized")},
+                          {QStringLiteral("providerId"), normalized}
+                      };
+
+                if (result.value(QStringLiteral("configChanged")).toBool()) {
+                    m_config = config::Config::fromJson(QJsonObject::fromVariantMap(result.value(QStringLiteral("config")).toMap()));
+                    m_configMap = m_config.toJson().toVariantMap();
+                    emit configChanged();
+                    refreshAll();
+                }
+
+                session->complete = true;
+                session->success = result.value(QStringLiteral("ok")).toBool();
+                session->error = result.value(QStringLiteral("error")).toString();
+
+                const QString title = session->success
+                    ? QStringLiteral("OAuth connected")
+                    : QStringLiteral("OAuth failed");
+                const QString body = session->success
+                    ? QStringLiteral("Provider %1 has been authorized.").arg(normalized)
+                    : (session->error.trimmed().isEmpty()
+                           ? QStringLiteral("OAuth callback failed.")
+                           : session->error);
+
+                emit toastRequested(title,
+                                    body,
+                                    session->success ? QStringLiteral("success")
+                                                     : QStringLiteral("warning"));
+
+                response.ok = session->success;
+                response.title = session->success
+                    ? QStringLiteral("YAOS OAuth complete")
+                    : QStringLiteral("YAOS OAuth failed");
+                response.body = session->success
+                    ? QStringLiteral("You can close this page and return to YAOS.")
+                    : body;
+                response.error = session->error;
+                return response;
+            },
+            &session->redirectUri,
+            &listenError);
+        if (!listening) {
+            emit toastRequested(QStringLiteral("OAuth failed"),
+                                listenError.isEmpty() ? QStringLiteral("Unable to start localhost callback listener.")
+                                                      : listenError,
+                                QStringLiteral("warning"));
+            return QVariantMap{
+                {QStringLiteral("ok"), false},
+                {QStringLiteral("error"), listenError}
+            };
+        }
+        QVariantMap result = backend
+            ? backend->startProviderBrowserOAuth(&nextConfig,
+                                                 normalized,
+                                                 session->redirectUri,
+                                                 session->state,
+                                                 session->codeVerifier)
+            : QVariantMap{
+                  {QStringLiteral("ok"), false},
+                  {QStringLiteral("error"), QStringLiteral("runtime backend is not initialized")},
+                  {QStringLiteral("providerId"), normalized}
+              };
+        if (!result.value(QStringLiteral("ok")).toBool()) {
+            session->listener->close();
+            emit toastRequested(QStringLiteral("OAuth failed"),
+                                result.value(QStringLiteral("error")).toString(),
+                                QStringLiteral("warning"));
+            return result;
+        }
+
+        if (result.value(QStringLiteral("configChanged")).toBool() ||
+            result.value(QStringLiteral("changed")).toBool()) {
+            m_config = nextConfig;
+            m_configMap = m_config.toJson().toVariantMap();
+            emit configChanged();
+            refreshAll();
+        }
+
+        session->authUrl = result.value(QStringLiteral("authUrl")).toString();
+        m_oauthSessions.insert(normalized, session);
+
+        const bool browserOpened = QDesktopServices::openUrl(QUrl(session->authUrl));
+        emit toastRequested(browserOpened ? QStringLiteral("OAuth started")
+                                          : QStringLiteral("OAuth URL ready"),
+                            browserOpened
+                                ? QStringLiteral("Browser login for %1 has been opened.").arg(normalized)
+                                : QStringLiteral("Copy the browser URL from the provider card to continue %1 login.")
+                                      .arg(normalized),
+                            browserOpened ? QStringLiteral("neutral") : QStringLiteral("warning"));
+        return providerAuthStatus(normalized);
+    }
+
+    // P1.1: device flow delegated to backend
+    if (!capability.value(QStringLiteral("deviceSupported")).toBool()) {
+        const QString error = QStringLiteral("This provider does not support OAuth device flow.");
+        emit toastRequested(QStringLiteral("OAuth failed"),
+                            error,
+                            QStringLiteral("warning"));
+        return QVariantMap{{QStringLiteral("ok"), false},
+                           {QStringLiteral("error"), error},
+                           {QStringLiteral("providerId"), normalized},
+                           {QStringLiteral("deviceSupported"), false}};
+    }
+    // Pass nextConfig so the backend can persist and update it in place.
+    const QVariantMap result = backend->startProviderDeviceFlow(&nextConfig, normalized);
+    if (result.value(QStringLiteral("changed")).toBool()) {
+        m_config = nextConfig;
+        m_configMap = m_config.toJson().toVariantMap();
+        emit configChanged();
+        refreshAll();
+    }
+    if (!result.value(QStringLiteral("ok")).toBool()) {
+        emit toastRequested(QStringLiteral("OAuth failed"),
+                            result.value(QStringLiteral("error")).toString(),
+                            QStringLiteral("warning"));
+    } else {
+        emit toastRequested(QStringLiteral("Device login ready"),
+                            QStringLiteral("Use the verification code shown in the provider card."),
+                            QStringLiteral("neutral"));
+    }
+    return result;
+}
+
+QVariantMap StudioBridge::pollProviderOAuth(const QString &providerId) {
+    const QString normalized = config::Config::normalizeProviderId(providerId);
+    // If there is an active browser session, just return its status.
+    auto sessionIt = m_oauthSessions.find(normalized);
+    if (sessionIt != m_oauthSessions.end() && sessionIt.value()) {
+        return providerAuthStatus(normalized);
+    }
+
+    std::shared_ptr<IStudioBackend> backend;
+    {
+        QMutexLocker locker(&m_backendMutex);
+        backend = m_backend;
+    }
+    if (!backend) {
+        return QVariantMap{
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("runtime backend is not initialized")}
+        };
+    }
+
+    const QVariantMap result = backend->pollProviderDeviceFlow(&m_config, normalized);
+    if (result.value(QStringLiteral("changed")).toBool()) {
+        m_configMap = m_config.toJson().toVariantMap();
+        emit configChanged();
+        refreshAll();
+    }
+    const bool loggedIn = result.value(QStringLiteral("loggedIn")).toBool();
+    const bool ok = result.value(QStringLiteral("ok")).toBool();
+    const QString error = result.value(QStringLiteral("error")).toString();
+    if (ok && loggedIn) {
+        emit toastRequested(QStringLiteral("OAuth connected"),
+                            QStringLiteral("Provider %1 has been authorized.").arg(normalized),
+                            QStringLiteral("success"));
+    } else if (!ok && !error.trimmed().isEmpty()) {
+        emit toastRequested(QStringLiteral("OAuth failed"),
+                            error,
+                            QStringLiteral("warning"));
+    }
+    return result;
+}
+
+QVariantMap StudioBridge::refreshProviderOAuth(const QString &providerId) {
+    const QString normalized = config::Config::normalizeProviderId(providerId);
+
+    std::shared_ptr<IStudioBackend> backend;
+    if (!m_backendMutex.tryLock()) {
+        return QVariantMap{
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("pending"), true},
+            {QStringLiteral("error"), QStringLiteral("runtime backend is busy")},
+            {QStringLiteral("providerId"), normalized}
+        };
+    }
+    backend = m_backend;
+    m_backendMutex.unlock();
+    if (!backend) {
+        return QVariantMap{
+            {QStringLiteral("ok"), false},
+            {QStringLiteral("error"), QStringLiteral("runtime backend is not initialized")}
+        };
+    }
+
+    const QVariantMap result = backend->refreshProviderOAuth(&m_config, normalized);
+    if (result.value(QStringLiteral("changed")).toBool()) {
+        m_configMap = m_config.toJson().toVariantMap();
+        emit configChanged();
+        refreshAll();
+    }
+    const bool ok = result.value(QStringLiteral("ok")).toBool();
+    const QString error = result.value(QStringLiteral("error")).toString();
+    emit toastRequested(ok ? QStringLiteral("OAuth refreshed")
+                           : QStringLiteral("OAuth refresh failed"),
+                        ok ? QStringLiteral("Provider %1 tokens have been refreshed.").arg(normalized)
+                           : error,
+                        ok ? QStringLiteral("success") : QStringLiteral("warning"));
+    return result;
+}
+
+bool StudioBridge::logoutProviderOAuth(const QString &providerId) {
+    const QString normalized = config::Config::normalizeProviderId(providerId);
+    closeOAuthSession(normalized);
+
+    std::shared_ptr<IStudioBackend> backend;
+    {
+        QMutexLocker locker(&m_backendMutex);
+        backend = m_backend;
+    }
+    if (!backend) {
+        emit toastRequested(QStringLiteral("Logout failed"),
+                            QStringLiteral("runtime backend is not initialized"),
+                            QStringLiteral("warning"));
+        return false;
+    }
+
+    const QVariantMap result = backend->logoutProviderOAuth(&m_config, normalized);
+    if (!result.value(QStringLiteral("ok")).toBool()) {
+        const QString body = result.value(QStringLiteral("error"),
+                                          QStringLiteral("Unable to clear stored OAuth credentials.")).toString();
+        emit toastRequested(QStringLiteral("Logout failed"), body, QStringLiteral("warning"));
+        return false;
+    }
+    if (result.value(QStringLiteral("configChanged")).toBool()) {
+        m_configMap = m_config.toJson().toVariantMap();
+        emit configChanged();
+        refreshAll();
+    }
+    emit toastRequested(QStringLiteral("OAuth cleared"),
+                        QStringLiteral("Provider %1 has been signed out.").arg(normalized),
+                        QStringLiteral("neutral"));
+    return true;
+}
+
+void StudioBridge::requestDelegationRoutePreview(const QVariantMap &requestMap) {
+    m_pendingDelegationRoutePreviewRequest = requestMap;
+    if (m_delegationRoutePreviewWatcher.isRunning()) {
+        m_delegationRoutePreviewQueued = true;
+        return;
+    }
+    startDelegationRoutePreview();
+}
+
+void StudioBridge::startDelegationRoutePreview() {
+    const QVariantMap requestMap = m_pendingDelegationRoutePreviewRequest;
+    m_delegationRoutePreviewQueued = false;
+
+    QVariantMap nextPreview = m_delegationRoutePreview;
+    nextPreview.insert(QStringLiteral("pending"), true);
+    if (nextPreview.value(QStringLiteral("message")).toString().trimmed().isEmpty()) {
+        nextPreview.insert(QStringLiteral("message"), QStringLiteral("正在计算委托预演..."));
+    }
+    if (nextPreview.value(QStringLiteral("nodes")).toList().isEmpty()) {
+        nextPreview.insert(QStringLiteral("resolved"), false);
+    }
+    m_delegationRoutePreview = nextPreview;
+    emit delegationRoutePreviewChanged();
+
+    m_delegationRoutePreviewWatcher.setFuture(QtConcurrent::run([this, requestMap]() {
+        QMutexLocker locker(&m_backendMutex);
+        if (!m_backend) {
+            return emptyDelegationRoutePreview(QStringLiteral("runtime facade is not initialized"),
+                                               QStringLiteral("runtime facade is not initialized"));
+        }
+
+        QVariantMap result = m_backend->previewDelegationRoute(QJsonObject::fromVariantMap(requestMap)).toVariantMap();
+        if (!result.contains(QStringLiteral("nodes"))) {
+            result.insert(QStringLiteral("nodes"), QVariantList());
+        }
+        return result;
+    }));
+}
+
+QVariantMap StudioBridge::previewDelegationRoute(const QVariantMap &requestMap) {
+    QMutexLocker locker(&m_backendMutex);
+    if (!m_backend) {
+        return emptyDelegationRoutePreview(QStringLiteral("runtime facade is not initialized"),
+                                           QStringLiteral("runtime facade is not initialized"));
+    }
+    QVariantMap result = m_backend->previewDelegationRoute(QJsonObject::fromVariantMap(requestMap)).toVariantMap();
+    result.insert(QStringLiteral("pending"), false);
+    if (!result.contains(QStringLiteral("nodes"))) {
+        result.insert(QStringLiteral("nodes"), QVariantList());
+    }
+    return result;
+}
+
+QVariantMap StudioBridge::submitDelegationRequest(const QVariantMap &requestMap) {
+    QJsonObject result;
+    {
+        QMutexLocker locker(&m_backendMutex);
+        if (!m_backend) {
+            return QVariantMap{
+                {"ok", false},
+                {"error", QStringLiteral("runtime facade is not initialized")},
+                {"message", QStringLiteral("runtime facade is not initialized")}
+            };
+        }
+        result = m_backend->submitDelegationRequest(QJsonObject::fromVariantMap(requestMap));
+    }
+
+    if (result.value(QStringLiteral("ok")).toBool(false)) {
+        refreshAll();
+    }
+    return result.toVariantMap();
+}
+
+QVariantMap StudioBridge::pushDelegationTemplatesToControl(const QVariantList &records,
+                                                           bool replaceExisting) {
+    std::shared_ptr<IStudioBackend> backend;
+    {
+        QMutexLocker locker(&m_backendMutex);
+        backend = m_backend;
+    }
+    QVariantMap result = backend
+        ? backend->pushDelegationTemplatesToControl(m_config, records, replaceExisting)
+        : QVariantMap{
+              {QStringLiteral("ok"), false},
+              {QStringLiteral("title"), QStringLiteral("同步失败")},
+              {QStringLiteral("body"), QStringLiteral("runtime backend is not initialized")},
+              {QStringLiteral("tone"), QStringLiteral("warning")},
+              {QStringLiteral("error"), QStringLiteral("runtime backend is not initialized")}
+          };
+
+    emit toastRequested(result.value(QStringLiteral("title"), QStringLiteral("同步失败")).toString(),
+                        result.value(QStringLiteral("body"), result.value(QStringLiteral("error")).toString()).toString(),
+                        result.value(QStringLiteral("tone"), QStringLiteral("warning")).toString());
+    return result;
+}
+
+QVariantMap StudioBridge::pullDelegationTemplatesFromControl(bool replaceExisting) {
+    std::shared_ptr<IStudioBackend> backend;
+    {
+        QMutexLocker locker(&m_backendMutex);
+        backend = m_backend;
+    }
+    QVariantMap result = backend
+        ? backend->pullDelegationTemplatesFromControl(m_config, replaceExisting)
+        : QVariantMap{
+              {QStringLiteral("ok"), false},
+              {QStringLiteral("title"), QStringLiteral("拉取失败")},
+              {QStringLiteral("body"), QStringLiteral("runtime backend is not initialized")},
+              {QStringLiteral("tone"), QStringLiteral("warning")},
+              {QStringLiteral("error"), QStringLiteral("runtime backend is not initialized")}
+          };
+
+    if (result.value(QStringLiteral("ok")).toBool() &&
+        result.value(QStringLiteral("configChanged")).toBool()) {
+        m_config = config::Config::fromJson(QJsonObject::fromVariantMap(result.value(QStringLiteral("config")).toMap()));
+        m_configMap = m_config.toJson().toVariantMap();
+        emit configChanged();
+        refreshAll();
+    }
+
+    emit toastRequested(result.value(QStringLiteral("title"), QStringLiteral("拉取失败")).toString(),
+                        result.value(QStringLiteral("body"), result.value(QStringLiteral("error")).toString()).toString(),
+                        result.value(QStringLiteral("tone"), QStringLiteral("warning")).toString());
+    return result;
+}
+
+void StudioBridge::sendMessage(const QString &prompt,
+                               const QString &sessionKey,
+                               const QString &modelOverride,
+                               const QString &providerOverride) {
+    if (prompt.trimmed().isEmpty() || m_chatWatcher.isRunning()) {
+        return;
+    }
+
+    const QString normalizedSession = sessionKey.trimmed().isEmpty() ? QStringLiteral("gui:primary") : sessionKey.trimmed();
+
+    appendChatEntry(QVariantMap{
+        {"role", "user"},
+        {"speaker", "Operator"},
+        {"content", prompt},
+        {"meta", QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss")},
+        {"trace", QVariantList()},
+        {"error", false}
+    });
+
+    const QString providerLabel = providerOverride.trimmed().isEmpty()
+        ? m_status.value(QStringLiteral("routedProvider")).toString()
+        : providerOverride.trimmed();
+    const QString modelLabel = modelOverride.trimmed().isEmpty()
+        ? m_status.value(QStringLiteral("defaultModel")).toString()
+        : modelOverride.trimmed();
+
+    m_pendingChatEntryIndex = m_chatHistory.size();
+    m_pendingChatSessionKey = normalizedSession;
+    m_pendingChatChannel = QStringLiteral("gui");
+    m_pendingChatTaskId.clear();
+    m_pendingChatTraceId.clear();
+    m_pendingChatStartedAt = QDateTime::currentDateTime();
+    m_pendingChatTrace.clear();
+    m_pendingChatTraceKeys.clear();
+    m_pendingChatStreamContent.clear();
+    m_pendingChatStreamThinking.clear();
+
+    appendChatEntry(QVariantMap{
+        {"role", "assistant"},
+        {"speaker", "SYNTH"},
+        {"content", pendingChatContent(m_pendingChatTrace)},
+        {"meta", QString("%1  ·  %2  ·  %3")
+                     .arg(providerLabel.isEmpty() ? QStringLiteral("agent") : providerLabel,
+                          modelLabel.isEmpty() ? QStringLiteral("default-model") : modelLabel,
+                          QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss")))},
+        {"trace", m_pendingChatTrace},
+        {"error", false},
+        {"pending", true}
+    });
+
+    setBusy(true);
+    if (m_refreshTimer.isActive()) {
+        m_refreshTimer.stop();
+        qInfo().noquote() << "StudioBridge automatic refresh timer paused while chat turn is running";
+    }
+    if (!m_chatProgressTimer.isActive()) {
+        m_chatProgressTimer.start();
+    }
+
+    // Register streaming progress callback so content/thinking deltas arrive
+    // in real time. The callback is invoked on the FastNet IO thread, so we
+    // post back to the main thread via QMetaObject::invokeMethod.
+    {
+        QMutexLocker locker(&m_backendMutex);
+        if (m_backend) {
+            m_backend->setStreamProgressCallback(
+                [this](const QString &contentDelta, const QString &thinkingDelta) {
+                    QMetaObject::invokeMethod(this, [this, contentDelta, thinkingDelta]() {
+                        applyStreamDelta(contentDelta, thinkingDelta);
+                    }, Qt::QueuedConnection);
+                }
+            );
+        }
+    }
+
+    m_chatWatcher.setFuture(QtConcurrent::run([this, prompt, normalizedSession, modelOverride, providerOverride]() {
+        std::shared_ptr<IStudioBackend> backend;
+        {
+            QMutexLocker locker(&m_backendMutex);
+            backend = m_backend;
+        }
+        if (!backend) {
+            StudioChatTurnResult turn;
+            turn.content = QStringLiteral("Error: runtime facade is not initialized");
+            turn.error = true;
+            return turn;
+        }
+        return backend->processMessageDetailed(prompt,
+                                               normalizedSession,
+                                               QStringLiteral("gui"),
+                                               QStringLiteral("desktop"),
+                                               modelOverride,
+                                               providerOverride);
+    }));
+}
+
+void StudioBridge::initializeWorkspace() {
+    if (m_workspaceInitWatcher.isRunning()) {
+        emit toastRequested(QStringLiteral("工作区初始化中"),
+                            QStringLiteral("当前仍在初始化工作区,请稍候."),
+                            QStringLiteral("neutral"));
+        return;
+    }
+
+    emit toastRequested(QStringLiteral("正在初始化工作区"),
+                        QStringLiteral("正在创建目录,系统模板和运行时存储."),
+                        QStringLiteral("neutral"));
+
+    m_workspaceInitWatcher.setFuture(QtConcurrent::run([this]() {
+        WorkspaceInitializationResult result;
+        {
+            QMutexLocker locker(&m_backendMutex);
+            result.ok = m_backend && m_backend->initializeWorkspace(&result.message);
+        }
+        if (!result.ok && result.message.trimmed().isEmpty()) {
+            result.message = QStringLiteral("runtime facade is not initialized");
+        }
+        return result;
+    }));
+}
+
+void StudioBridge::installCatalogItem(const QString &catalogId) {
+    const QString normalizedId = catalogId.trimmed();
+    if (normalizedId.isEmpty()) {
+        return;
+    }
+
+    if (m_installWatcher.isRunning()) {
+        emit toastRequested(QStringLiteral("安装处理中"),
+                            QStringLiteral("当前仍在处理安装指令,请稍候."),
+                            QStringLiteral("neutral"));
+        return;
+    }
+
+    setBusy(true);
+
+    connect(&m_installWatcher,
+            &QFutureWatcher<InstallResult>::finished,
+            this,
+            &StudioBridge::handleInstallFinished,
+            Qt::UniqueConnection);
+
+    config::Config nextConfig = m_config;
+    m_installWatcher.setFuture(QtConcurrent::run([this, nextConfig, normalizedId]() {
+        InstallResult result;
+        result.updatedConfig = nextConfig;
+
+        {
+            QMutexLocker locker(&m_backendMutex);
+            if (!m_backend) {
+                result.message = QStringLiteral("runtime backend is not initialized");
+                result.ok = false;
+                return result;
+            }
+            if (!m_backend->installCatalogEntry(&result.updatedConfig, normalizedId, &result.message)) {
+                result.ok = false;
+                return result;
+            }
+        }
+
+        result.configChanged = normalizedId.startsWith(QStringLiteral("mcp."));
+        result.ok = true;
+        return result;
+    }));
+}
+
+void StudioBridge::handleInstallFinished() {
+    setBusy(false);
+    InstallResult result = m_installWatcher.result();
+    
+    if (result.ok) {
+        if (result.configChanged) {
+            m_config = result.updatedConfig;
+        }
+
+        refreshAll();
+        emit toastRequested(QStringLiteral("安装完成"),
+                            result.message.isEmpty() ? QStringLiteral("已将扩展写入工作区.") : result.message,
+                            QStringLiteral("success"));
+    } else {
+        refreshAll();
+        emit toastRequested(QStringLiteral("安装失败"),
+                            result.message.isEmpty() ? QStringLiteral("无法安装所选扩展.") : result.message,
+                            QStringLiteral("warning"));
+    }
+}
+
+void StudioBridge::handleWorkspaceInitializationFinished() {
+    const WorkspaceInitializationResult result = m_workspaceInitWatcher.result();
+    if (!result.ok) {
+        emit toastRequested(QStringLiteral("初始化工作区失败"),
+                            result.message,
+                            QStringLiteral("warning"));
+        return;
+    }
+
+    refreshAll();
+    emit toastRequested(QStringLiteral("工作区已初始化"),
+                        result.message,
+                        QStringLiteral("success"));
+}
+
+void StudioBridge::startGateway() {
+    if (m_gatewayActionWatcher.isRunning()) {
+        emit toastRequested(QStringLiteral("网关处理中"),
+                            QStringLiteral("当前仍在处理上一条网关指令,请稍候."),
+                            QStringLiteral("neutral"));
+        return;
+    }
+
+    connect(&m_gatewayActionWatcher,
+            &QFutureWatcher<bool>::finished,
+            this,
+            &StudioBridge::handleGatewayActionFinished,
+            Qt::UniqueConnection);
+
+    m_gatewayStartRequested = true;
+    m_gatewayActionWatcher.setFuture(QtConcurrent::run([this]() {
+        QMutexLocker locker(&m_backendMutex);
+        return m_backend && m_backend->startGatewayServices();
+    }));
+}
+
+void StudioBridge::stopGateway() {
+    if (m_gatewayActionWatcher.isRunning()) {
+        emit toastRequested(QStringLiteral("网关处理中"),
+                            QStringLiteral("当前仍在处理上一条网关指令,请稍候."),
+                            QStringLiteral("neutral"));
+        return;
+    }
+
+    connect(&m_gatewayActionWatcher,
+            &QFutureWatcher<bool>::finished,
+            this,
+            &StudioBridge::handleGatewayActionFinished,
+            Qt::UniqueConnection);
+
+    m_gatewayStartRequested = false;
+    m_gatewayActionWatcher.setFuture(QtConcurrent::run([this]() {
+        QMutexLocker locker(&m_backendMutex);
+        if (m_backend) {
+            m_backend->stopGatewayServices();
+        }
+        return true;
+    }));
+}
+
+void StudioBridge::approve(const QString &approvalId, const QString &scope) {
+    bool resolved = false;
+    {
+        QMutexLocker locker(&m_backendMutex);
+        resolved = m_backend && m_backend->resolveApproval(approvalId, QStringLiteral("approve"), scope);
+    }
+    if (!resolved) {
+        emit toastRequested(QStringLiteral("审批失败"),
+                            QStringLiteral("无法更新这条审批记录."),
+                            QStringLiteral("warning"));
+        return;
+    }
+    refreshAll();
+    emit toastRequested(QStringLiteral("审批已通过"),
+                        approvalId,
+                        QStringLiteral("success"));
+}
+
+void StudioBridge::deny(const QString &approvalId) {
+    bool resolved = false;
+    {
+        QMutexLocker locker(&m_backendMutex);
+        resolved = m_backend && m_backend->resolveApproval(approvalId, QStringLiteral("deny"), QStringLiteral("session"));
+    }
+    if (!resolved) {
+        emit toastRequested(QStringLiteral("审批失败"),
+                            QStringLiteral("无法拒绝这条审批记录."),
+                            QStringLiteral("warning"));
+        return;
+    }
+    refreshAll();
+    emit toastRequested(QStringLiteral("审批已拒绝"),
+                        approvalId,
+                        QStringLiteral("warning"));
+}
+
+void StudioBridge::markNotificationsRead() {
+    {
+        QMutexLocker locker(&m_backendMutex);
+        if (m_backend) {
+            m_backend->markAllNotificationsRead();
+        }
+    }
+    refreshAll();
+    emit toastRequested(QStringLiteral("通知已清空"),
+                        QStringLiteral("所有通知已标记为已读."),
+                        QStringLiteral("neutral"));
+}
+
+QString StudioBridge::saveAutomation(const QVariantMap &recordMap) {
+    QString error;
+    QString id;
+    {
+        QMutexLocker locker(&m_backendMutex);
+        id = m_backend ? m_backend->saveAutomation(recordMap, &error) : QString();
+    }
+    if (id.isEmpty()) {
+        emit toastRequested(QStringLiteral("保存失败"),
+                            error.isEmpty() ? QStringLiteral("无法保存自动化.") : error,
+                            QStringLiteral("warning"));
+        return QString();
+    }
+    refreshAll();
+    emit toastRequested(QStringLiteral("自动化已保存"), id, QStringLiteral("success"));
+    return id;
+}
+
+void StudioBridge::runAutomation(const QString &automationId) {
+    QString error;
+    QString response;
+    {
+        QMutexLocker locker(&m_backendMutex);
+        response = m_backend ? m_backend->runAutomation(automationId, &error) : QString();
+    }
+    if (response.isEmpty() && !error.isEmpty()) {
+        emit toastRequested(QStringLiteral("执行失败"), error, QStringLiteral("warning"));
+        return;
+    }
+    refreshAll();
+    emit toastRequested(QStringLiteral("自动化已执行"),
+                        response.left(180),
+                        QStringLiteral("success"));
+}
+
+void StudioBridge::deleteAutomation(const QString &automationId) {
+    bool removed = false;
+    {
+        QMutexLocker locker(&m_backendMutex);
+        removed = m_backend && m_backend->removeAutomation(automationId);
+    }
+    if (!removed) {
+        emit toastRequested(QStringLiteral("删除失败"),
+                            QStringLiteral("无法删除指定自动化."),
+                            QStringLiteral("warning"));
+        return;
+    }
+    refreshAll();
+    emit toastRequested(QStringLiteral("自动化已删除"),
+                        automationId,
+                        QStringLiteral("neutral"));
+}
+
+QString StudioBridge::markdownToHtml(const QString &markdown) const {
+    return markdownToHtmlFragment(markdown);
+}
+
+void StudioBridge::copyToClipboard(const QString &text) {
+    if (QClipboard *clipboard = QGuiApplication::clipboard()) {
+        clipboard->setText(text);
+        emit toastRequested(QStringLiteral("已复制"),
+                            QStringLiteral("内容已写入剪贴板."),
+                            QStringLiteral("success"));
+    }
+}
+
+void StudioBridge::minimizeWindow() {
+    if (!m_window) return;
+    endWindowDrag();
+#ifdef Q_OS_WIN
+    if (HWND hwnd = nativeWindowHandle(m_window)) {
+        ShowWindow(hwnd, SW_MINIMIZE);
+        return;
+    }
+#endif
+    m_window->showMinimized();
+}
+
+void StudioBridge::toggleMaximizeWindow() {
+    if (!m_window) {
+        return;
+    }
+    endWindowDrag();
+#ifdef Q_OS_WIN
+    if (HWND hwnd = nativeWindowHandle(m_window)) {
+        ShowWindow(hwnd, IsZoomed(hwnd) ? SW_RESTORE : SW_MAXIMIZE);
+        return;
+    }
+#endif
+    if (m_window->visibility() == QWindow::Maximized) {
+        m_window->showNormal();
+    } else {
+        m_window->showMaximized();
+    }
+}
+
+void StudioBridge::closeWindow() {
+    if (!m_window) return;
+    endWindowDrag();
+#ifdef Q_OS_WIN
+    if (HWND hwnd = nativeWindowHandle(m_window)) {
+        PostMessage(hwnd, WM_CLOSE, 0, 0);
+        return;
+    }
+#endif
+    m_window->close();
+}
+
+void StudioBridge::beginWindowDrag(qreal screenX, qreal screenY) {
+    if (!m_window || isMaximizedWindow(m_window)) {
+        endWindowDrag();
+        return;
+    }
+
+    const QPoint startScreenPos(static_cast<int>(screenX), static_cast<int>(screenY));
+    if (!isReasonableScreenCoordinate(startScreenPos.x()) ||
+        !isReasonableScreenCoordinate(startScreenPos.y())) {
+        endWindowDrag();
+        return;
+    }
+
+    m_dragStartScreenPos = startScreenPos;
+    m_dragStartWindowPos = m_window->position();
+    m_dragActive = true;
+}
+
+void StudioBridge::dragWindow(qreal screenX, qreal screenY) {
+    if (!m_window || !m_dragActive || isMaximizedWindow(m_window)) {
+        return;
+    }
+
+    const QPoint currentScreenPos(static_cast<int>(screenX), static_cast<int>(screenY));
+    if (!isReasonableScreenCoordinate(currentScreenPos.x()) ||
+        !isReasonableScreenCoordinate(currentScreenPos.y())) {
+        endWindowDrag();
+        return;
+    }
+
+    QPoint target = m_dragStartWindowPos + (currentScreenPos - m_dragStartScreenPos);
+    if (QScreen *screen = m_window->screen()) {
+        const QRect available = screen->availableGeometry();
+        const int minX = available.left() - (m_window->width() - 180);
+        const int maxX = available.right() - 180;
+        const int minY = available.top();
+        const int maxY = available.bottom() - 72;
+        target.setX(qBound(minX, target.x(), maxX));
+        target.setY(qBound(minY, target.y(), maxY));
+    }
+    m_window->setPosition(target);
+}
+
+void StudioBridge::endWindowDrag() {
+    m_dragStartScreenPos = QPoint();
+    m_dragStartWindowPos = QPoint();
+    m_dragActive = false;
+}
+
+void StudioBridge::handleChatFinished() {
+    const StudioChatTurnResult turn = m_chatWatcher.result();
+    m_chatProgressTimer.stop();
+    QVariantList trace = m_pendingChatTrace;
+    for (const QVariant &eventValue : turn.trace) {
+        const QVariantMap event = eventValue.toMap();
+        const QString key = chatTraceEventKey(event);
+        if (m_pendingChatTraceKeys.contains(key)) {
+            continue;
+        }
+        m_pendingChatTraceKeys.insert(key);
+        trace.append(event);
+    }
+
+    const QVariantMap finalEntry{
+        {"role", turn.error ? "system" : "assistant"},
+        {"speaker", turn.error ? "SYSTEM" : "SYNTH"},
+        {"content", turn.content.isEmpty() ? QStringLiteral("没有收到返回内容.") : turn.content},
+        {"thinking", turn.thinking},
+        {"meta", QString("%1  ·  %2  ·  %3")
+                     .arg(turn.provider.isEmpty() ? QStringLiteral("agent") : turn.provider,
+                          turn.model.isEmpty() ? QStringLiteral("default-model") : turn.model,
+                          QDateTime::currentDateTime().toString("HH:mm:ss"))},
+        {"trace", trace},
+        {"error", turn.error},
+        {"pending", false},
+        {"taskId", turn.taskId},
+        {"traceId", turn.traceId}
+    };
+
+    if (m_pendingChatEntryIndex >= 0 && m_pendingChatEntryIndex < m_chatHistory.size()) {
+        replaceChatEntry(m_pendingChatEntryIndex, finalEntry);
+    } else {
+        appendChatEntry(finalEntry);
+    }
+
+    resetPendingChatState();
+
+    setBusy(false);
+    refreshAll();
+    emit toastRequested(turn.error ? QStringLiteral("消息处理失败") : QStringLiteral("收到新回复"),
+                        turn.error
+                            ? QStringLiteral("这一轮处理失败,请查看对话记录和执行轨迹.")
+                            : QStringLiteral("模型答复已写入对话记录."),
+                        turn.error ? QStringLiteral("warning") : QStringLiteral("success"));
+}
+
+void StudioBridge::updateChatProgress() {
+    if (!m_chatWatcher.isRunning() ||
+        m_pendingChatEntryIndex < 0 ||
+        m_pendingChatEntryIndex >= m_chatHistory.size()) {
+        m_chatProgressTimer.stop();
+        return;
+    }
+
+    std::shared_ptr<IStudioBackend> backend;
+    {
+        QMutexLocker locker(&m_backendMutex);
+        backend = m_backend;
+    }
+    if (!backend) {
+        return;
+    }
+    const QVariantList recent = backend->recentEvents(160);
+
+    bool changed = false;
+    for (const QVariant &eventValue : recent) {
+        const QVariantMap event = eventValue.toMap();
+        if (!eventBelongsToPendingChatTurn(event,
+                                           m_pendingChatTaskId,
+                                           m_pendingChatTraceId,
+                                           m_pendingChatSessionKey,
+                                           m_pendingChatChannel,
+                                           m_pendingChatStartedAt)) {
+            continue;
+        }
+
+        const QString key = chatTraceEventKey(event);
+        if (m_pendingChatTraceKeys.contains(key)) {
+            continue;
+        }
+
+        const QVariantMap metadata = event.value(QStringLiteral("metadata")).toMap();
+        const QString eventTaskId = metadata.value(QStringLiteral("task_id")).toString().trimmed();
+        QString eventTraceId = metadata.value(QStringLiteral("trace_id")).toString().trimmed();
+        if (eventTraceId.isEmpty()) {
+            eventTraceId = metadata.value(QStringLiteral("traceId")).toString().trimmed();
+        }
+        if (m_pendingChatTaskId.isEmpty() && !eventTaskId.isEmpty()) {
+            m_pendingChatTaskId = eventTaskId;
+        }
+        if (m_pendingChatTraceId.isEmpty() && !eventTraceId.isEmpty()) {
+            m_pendingChatTraceId = eventTraceId;
+        }
+
+        m_pendingChatTraceKeys.insert(key);
+        m_pendingChatTrace.append(event);
+        changed = true;
+    }
+
+    if (!changed) {
+        return;
+    }
+
+    QVariantMap pendingEntry = m_chatHistory.at(m_pendingChatEntryIndex).toMap();
+    pendingEntry.insert(QStringLiteral("content"), pendingChatContent(m_pendingChatTrace));
+    pendingEntry.insert(QStringLiteral("trace"), m_pendingChatTrace);
+    pendingEntry.insert(QStringLiteral("pending"), true);
+    if (!m_pendingChatTaskId.isEmpty()) {
+        pendingEntry.insert(QStringLiteral("taskId"), m_pendingChatTaskId);
+    }
+    if (!m_pendingChatTraceId.isEmpty()) {
+        pendingEntry.insert(QStringLiteral("traceId"), m_pendingChatTraceId);
+    }
+    replaceChatEntry(m_pendingChatEntryIndex, pendingEntry);
+}
+
+void StudioBridge::handleDelegationRoutePreviewFinished() {
+    QVariantMap result = m_delegationRoutePreviewWatcher.result();
+    result.insert(QStringLiteral("pending"), false);
+    if (!result.contains(QStringLiteral("nodes"))) {
+        result.insert(QStringLiteral("nodes"), QVariantList());
+    }
+    m_delegationRoutePreview = result;
+    emit delegationRoutePreviewChanged();
+
+    if (m_delegationRoutePreviewQueued) {
+        QTimer::singleShot(0, this, &StudioBridge::startDelegationRoutePreview);
+    }
+}
+
+void StudioBridge::handleGatewayActionFinished() {
+    const bool started = m_gatewayActionWatcher.result();
+    refreshAll();
+
+    if (m_gatewayStartRequested) {
+        emit toastRequested(started ? QStringLiteral("网关已启动")
+                                    : QStringLiteral("启动失败"),
+                            started ? QStringLiteral("多频道与心跳任务已进入运行态.")
+                                    : QStringLiteral("网关服务没有成功启动."),
+                            started ? QStringLiteral("success")
+                                    : QStringLiteral("warning"));
+        return;
+    }
+
+    emit toastRequested(QStringLiteral("网关已停止"),
+                        QStringLiteral("系统已退出多频道运行态."),
+                        QStringLiteral("neutral"));
+}
+
+void StudioBridge::maybeCompleteManualRefreshToast() {
+    if (!m_manualRefreshToastPending ||
+        m_coreRefreshRunning ||
+        m_coreRefreshQueued ||
+        m_deferredRefreshRunning ||
+        m_deferredRefreshQueued) {
+        return;
+    }
+
+    m_manualRefreshToastPending = false;
+    emit toastRequested(QStringLiteral("状态已同步"),
+                        QStringLiteral("最新统计已经写入总览卡片."),
+                        QStringLiteral("success"));
+}
+
+void StudioBridge::closeOAuthSession(const QString &providerId) {
+    auto it = m_oauthSessions.find(config::Config::normalizeProviderId(providerId));
+    if (it == m_oauthSessions.end() || !it.value()) {
+        return;
+    }
+
+    PendingOAuthSession *session = it.value().data();
+    if (session->listener) {
+        session->listener->close();
+        session->listener.clear();
+    }
+    m_oauthSessions.erase(it);
+}
+
+bool StudioBridge::rebuildStudioBackend(const config::Config &config, QString *fallbackReason) {
+    StudioBackendSelection selection = createStudioBackend(config);
+    if (!selection.backend) {
+        if (fallbackReason) {
+            fallbackReason->clear();
+        }
+        return false;
+    }
+
+    std::shared_ptr<IStudioBackend> backend(std::move(selection.backend));
+    {
+        QMutexLocker locker(&m_backendMutex);
+        m_backend = std::move(backend);
+    }
+
+    if (fallbackReason) {
+        *fallbackReason = selection.fallbackReason;
+    }
+    return true;
+}
+
+void StudioBridge::setBusy(bool busy) {
+    if (m_busy == busy) {
+        return;
+    }
+    m_busy = busy;
+    emit busyChanged();
+}
+
+void StudioBridge::setSaveState(bool inProgress, int progress, const QString &message) {
+    progress = qBound(0, progress, 100);
+    if (m_saveInProgress == inProgress &&
+        m_saveProgress == progress &&
+        m_saveMessage == message) {
+        return;
+    }
+
+    m_saveInProgress = inProgress;
+    m_saveProgress = progress;
+    m_saveMessage = message;
+    emit saveStateChanged();
+}
+
+void StudioBridge::runNextSaveStep() {
+    if (!m_saveInProgress || m_saveAwaitingRefresh) {
+        return;
+    }
+
+    switch (m_saveStep) {
+    case 0:
+        setSaveState(true, 18, QStringLiteral("正在写入配置文件 / Writing configuration"));
+        break;
+    case 1: {
+        setSaveState(true, 46, QStringLiteral("正在切换运行时 / Rebuilding runtime facade"));
+        std::shared_ptr<IStudioBackend> backend;
+        {
+            QMutexLocker locker(&m_backendMutex);
+            backend = m_backend;
+        }
+        if (!backend) {
+            setSaveState(false, 0, QString());
+            emit toastRequested(QStringLiteral("保存失败"),
+                                QStringLiteral("runtime backend is not initialized"),
+                                QStringLiteral("warning"));
+            emit saveFinished(false);
+            return;
+        }
+
+        StudioConfigSaveResult result = backend->saveConfiguration(m_pendingSaveConfig, m_config);
+        if (result.backend) {
+            std::shared_ptr<IStudioBackend> savedBackend(std::move(result.backend));
+            QMutexLocker locker(&m_backendMutex);
+            m_backend = std::move(savedBackend);
+        }
+        if (result.configChanged) {
+            m_pendingSaveConfig = result.config;
+            m_config = result.config;
+            m_configMap = m_config.toJson().toVariantMap();
+            emit configChanged();
+        }
+        m_pendingSaveFallbackReason = result.fallbackReason;
+
+        if (!result.ok) {
+            m_pendingSaveFailureTitle = result.title.isEmpty() ? QStringLiteral("保存失败") : result.title;
+            m_pendingSaveFailureBody = result.body.isEmpty() ? QStringLiteral("配置保存没有完成.") : result.body;
+            m_pendingSaveFailureTone = result.tone.isEmpty() ? QStringLiteral("warning") : result.tone;
+
+            if (result.configChanged || result.backend) {
+                m_saveResultOk = false;
+                m_saveAwaitingRefresh = true;
+                setSaveState(true, 88, QStringLiteral("正在回读保存后的状态 / Refreshing saved state"));
+                refreshCoreData();
+                maybeCompleteSave();
+                return;
+            }
+
+            setSaveState(false, 0, QString());
+            emit toastRequested(m_pendingSaveFailureTitle,
+                                m_pendingSaveFailureBody,
+                                m_pendingSaveFailureTone);
+            emit saveFinished(false);
+            return;
+        }
+        break;
+    }
+    case 2:
+        setSaveState(true, 74, QStringLiteral("正在重载运行时 / Reloading runtime"));
+        break;
+    case 3:
+        m_saveResultOk = true;
+        m_saveAwaitingRefresh = true;
+        setSaveState(true, 88, QStringLiteral("正在刷新页面与状态 / Refreshing views"));
+        refreshCoreData();
+        maybeCompleteSave();
+        return;
+    default:
+        return;
+    }
+
+    ++m_saveStep;
+    QTimer::singleShot(0, this, &StudioBridge::runNextSaveStep);
+}
+
+void StudioBridge::maybeCompleteSave() {
+    if (!m_saveInProgress || !m_saveAwaitingRefresh) {
+        return;
+    }
+
+    if (m_coreRefreshRunning ||
+        m_coreRefreshQueued) {
+        setSaveState(true, 94, QStringLiteral("正在同步摘要与面板 / Syncing dashboards"));
+        return;
+    }
+
+    m_saveAwaitingRefresh = false;
+
+    if (!m_saveResultOk) {
+        setSaveState(false, 0, QString());
+        emit toastRequested(m_pendingSaveFailureTitle.isEmpty() ? QStringLiteral("保存失败") : m_pendingSaveFailureTitle,
+                            m_pendingSaveFailureBody.isEmpty() ? QStringLiteral("配置保存没有完成.") : m_pendingSaveFailureBody,
+                            m_pendingSaveFailureTone);
+        emit saveFinished(false);
+        return;
+    }
+
+    setSaveState(false, 100, QStringLiteral("保存完成 / Save complete"));
+    if (!m_pendingSaveFallbackReason.isEmpty()) {
+        emit toastRequested(QStringLiteral("运行时已回退"),
+                            m_pendingSaveFallbackReason,
+                            QStringLiteral("warning"));
+    }
+    emit toastRequested(QStringLiteral("配置已同步"),
+                        QStringLiteral("新的系统参数已经写入并重载."),
+                        QStringLiteral("success"));
+    emit saveFinished(true);
+}
+
+void StudioBridge::setStartupCanLoadMain(bool canLoadMain) {
+    if (m_startupCanLoadMain == canLoadMain) {
+        return;
+    }
+    m_startupCanLoadMain = canLoadMain;
+    emit startupChanged();
+}
+
+void StudioBridge::setStartupState(int progress, const QString &message, bool complete) {
+    const bool changed = (m_startupProgress != progress) ||
+                         (m_startupMessage != message) ||
+                         (m_startupComplete != complete);
+    if (!changed) {
+        return;
+    }
+
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    const qint64 totalMs = m_startupStartedAtMs > 0
+        ? qMax<qint64>(0, nowMs - m_startupStartedAtMs)
+        : 0;
+    const qint64 stepMs = m_startupLastTransitionAtMs > 0
+        ? qMax<qint64>(0, nowMs - m_startupLastTransitionAtMs)
+        : totalMs;
+
+    QVariantMap timelineEntry;
+    timelineEntry.insert(QStringLiteral("progress"), progress);
+    timelineEntry.insert(QStringLiteral("message"), message);
+    timelineEntry.insert(QStringLiteral("complete"), complete);
+    timelineEntry.insert(QStringLiteral("stepMs"), stepMs);
+    timelineEntry.insert(QStringLiteral("totalMs"), totalMs);
+    m_startupTimeline.append(timelineEntry);
+    if (m_startupTimeline.size() > 16) {
+        m_startupTimeline.removeFirst();
+    }
+
+    qInfo().noquote() << QStringLiteral("StudioBridge startup progress %1% stepMs=%2 totalMs=%3 complete=%4 message=%5")
+                             .arg(progress)
+                             .arg(stepMs)
+                             .arg(totalMs)
+                             .arg(complete ? QStringLiteral("true") : QStringLiteral("false"),
+                                  message);
+    m_startupProgress = progress;
+    m_startupMessage = message;
+    m_startupElapsedMs = totalMs;
+    m_startupStepElapsedMs = stepMs;
+    m_startupComplete = complete;
+    m_startupLastTransitionAtMs = nowMs;
+    emit startupChanged();
+}
+
+void StudioBridge::tryFinalizeStartup() {
+    if (m_startupComplete ||
+        !m_startupBootstrapFinished ||
+        !m_mainUiLoaded ||
+        !m_startupDataRefreshScheduled ||
+        !m_startupCoreRefreshStarted ||
+        !m_startupDeferredRefreshStarted ||
+        m_coreRefreshRunning ||
+        m_deferredRefreshRunning ||
+        m_coreRefreshQueued ||
+        m_deferredRefreshQueued) {
+        return;
+    }
+
+    qInfo().noquote() << "StudioBridge startup reached real completion after initial refreshes";
+    setStartupState(100, QStringLiteral("主界面已就绪 / Main console ready"), true);
+}
+
+void StudioBridge::appendChatEntry(const QVariantMap &entry) {
+    QVariantList next = m_chatHistory;
+    next.append(entry);
+    m_chatHistory = next;
+    emit chatHistoryChanged();
+}
+
+void StudioBridge::replaceChatEntry(int index, const QVariantMap &entry) {
+    if (index < 0 || index >= m_chatHistory.size()) {
+        return;
+    }
+    QVariantList next = m_chatHistory;
+    next[index] = entry;
+    m_chatHistory = next;
+    emit chatHistoryChanged();
+}
+
+void StudioBridge::resetPendingChatState() {
+    m_pendingChatEntryIndex = -1;
+    m_pendingChatSessionKey.clear();
+    m_pendingChatChannel.clear();
+    m_pendingChatTaskId.clear();
+    m_pendingChatTraceId.clear();
+    m_pendingChatStartedAt = QDateTime();
+    m_pendingChatTrace.clear();
+    m_pendingChatTraceKeys.clear();
+    m_pendingChatStreamContent.clear();
+    m_pendingChatStreamThinking.clear();
+}
+
+void StudioBridge::applyStreamDelta(const QString &contentDelta, const QString &thinkingDelta) {
+    if (m_pendingChatEntryIndex < 0 || m_pendingChatEntryIndex >= m_chatHistory.size()) {
+        return;
+    }
+    if (contentDelta.isEmpty() && thinkingDelta.isEmpty()) {
+        return;
+    }
+
+    m_pendingChatStreamContent  += contentDelta;
+    m_pendingChatStreamThinking += thinkingDelta;
+
+    QVariantMap entry = m_chatHistory.at(m_pendingChatEntryIndex).toMap();
+    entry.insert(QStringLiteral("content"),  m_pendingChatStreamContent);
+    entry.insert(QStringLiteral("thinking"), m_pendingChatStreamThinking);
+    entry.insert(QStringLiteral("pending"),  true);
+    replaceChatEntry(m_pendingChatEntryIndex, entry);
+}
+
+void StudioBridge::handleFileChanged(const QString &path) {
+    qInfo().noquote() << "StudioBridge detected database file change:" << path << "; scheduling debounced refreshAll";
+    if (!m_fileWatcher.files().contains(path)) {
+        m_fileWatcher.addPath(path);
+    }
+    m_fileWatcherDebounceTimer.start();
+}
+
+} // namespace yaos::ui
+
