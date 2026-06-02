@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import "components"
@@ -2291,7 +2291,7 @@ Rectangle {
                             Text {
                                 text: "控制层 Control Layer"
                                 color: shellTheme.tagText
-                                font.pixelSize: 11
+                                font.pixelSize: Design.Foundation.textSm
                                 font.weight: Font.Black
                                 font.letterSpacing: 1.2
                             }
@@ -2309,7 +2309,7 @@ Rectangle {
                     Text {
                         text: "元智能操作系统工作台"
                         color: shellTheme.brandSubtitle
-                        font.pixelSize: 11
+                        font.pixelSize: Design.Foundation.textSm
                         width: parent.width
                         wrapMode: Text.WordWrap
                     }
@@ -2352,7 +2352,7 @@ Rectangle {
                             Text {
                                 text: bridge.status.actualBackend || "\u8fd0\u884c\u65f6\u79bb\u7ebf"
                                 color: shellTheme.statusTitle
-                                font.pixelSize: 13; font.weight: Font.DemiBold; font.letterSpacing: 0.2
+                                font.pixelSize: Design.Foundation.textLg; font.weight: Font.DemiBold; font.letterSpacing: 0.2
                                 width: parent.width - 15; wrapMode: Text.WordWrap
                             }
                         }
@@ -2360,7 +2360,7 @@ Rectangle {
                         Text {
                             text: "\u5f53\u524d\u5382\u5546  " + providerTitle(bridge.status.routedProvider || "auto")
                             color: shellTheme.statusMeta
-                            font.pixelSize: 10; font.letterSpacing: 0.5
+                            font.pixelSize: Design.Foundation.textXs; font.letterSpacing: 0.5
                             width: parent.width; wrapMode: Text.WordWrap
                         }
 
@@ -2370,7 +2370,7 @@ Rectangle {
                             Text {
                                 text: bridge.status.gatewayRunning ? "GATEWAY  ONLINE" : "GATEWAY  IDLE"
                                 color: bridge.status.gatewayRunning ? successStatusStyle.text : warningStatusStyle.text
-                                font.pixelSize: 10; font.letterSpacing: 0.8
+                                font.pixelSize: Design.Foundation.textXs; font.letterSpacing: 0.8
                             }
                         }
 
@@ -2380,7 +2380,7 @@ Rectangle {
                             Text {
                                 text: bridge.status.workspaceReady ? "WORKSPACE  READY" : "WORKSPACE  PENDING"
                                 color: bridge.status.workspaceReady ? successStatusStyle.text : warningStatusStyle.text
-                                font.pixelSize: 10; font.letterSpacing: 0.8
+                                font.pixelSize: Design.Foundation.textXs; font.letterSpacing: 0.8
                             }
                         }
                     }
@@ -2420,13 +2420,13 @@ Rectangle {
                             Text {
                                 text: "任务  " + (bridge.status.taskCount || 0)
                                 color: Design.Theme.section("tasks").accent
-                                font.pixelSize: 13
+                                font.pixelSize: Design.Foundation.textLg
                                 width: (parent.width - parent.spacing) / 2
                             }
                             Text {
                                 text: "事件  " + (bridge.status.eventCount || 0)
                                 color: Design.Theme.section("events").accent
-                                font.pixelSize: 13
+                                font.pixelSize: Design.Foundation.textLg
                                 width: (parent.width - parent.spacing) / 2
                             }
                         }
@@ -2438,13 +2438,13 @@ Rectangle {
                             Text {
                                 text: "待审批  " + (bridge.status.pendingApprovalCount || 0)
                                 color: Design.Theme.section("approvals").accent
-                                font.pixelSize: 13
+                                font.pixelSize: Design.Foundation.textLg
                                 width: (parent.width - parent.spacing) / 2
                             }
                             Text {
                                 text: "未读通知  " + (bridge.status.unreadNotificationCount || 0)
                                 color: warningStatusStyle.text
-                                font.pixelSize: 13
+                                font.pixelSize: Design.Foundation.textLg
                                 width: (parent.width - parent.spacing) / 2
                             }
                         }
@@ -2521,7 +2521,7 @@ Rectangle {
                                 Text {
                                     text: "桌面工作台 / Desktop Console"
                                     color: shellTheme.headerSubtitle
-                                    font.pixelSize: 11
+                                    font.pixelSize: Design.Foundation.textSm
                                 }
                             }
                         }
@@ -2820,7 +2820,7 @@ Rectangle {
             Text {
                 text: notificationTitle
                 color: toastTheme.title
-                font.pixelSize: 15
+                font.pixelSize: Design.Foundation.textXxl
                 font.weight: Font.DemiBold
             }
 
@@ -2828,7 +2828,7 @@ Rectangle {
                 width: parent.width
                 text: notificationBody
                 color: toastTheme.body
-                font.pixelSize: 13
+                font.pixelSize: Design.Foundation.textLg
                 wrapMode: Text.WordWrap
             }
         }
@@ -2880,7 +2880,7 @@ Rectangle {
                     width: parent.width
                     text: bridge.saveMessage || "正在同步新的系统参数..."
                     color: startupTheme.body
-                    font.pixelSize: 14
+                    font.pixelSize: Design.Foundation.textXl
                     wrapMode: Text.WordWrap
                 }
 
@@ -2906,7 +2906,7 @@ Rectangle {
                 Text {
                     text: Math.round(Number(bridge.saveProgress || 0)) + "%  ·  正在应用配置"
                     color: startupTheme.body
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                 }
             }
         }
@@ -3031,14 +3031,14 @@ Rectangle {
                 Text {
                     text: "主界面预加载中 / Main console is loading"
                     color: startupTheme.subtitle
-                    font.pixelSize: 14
+                    font.pixelSize: Design.Foundation.textXl
                 }
 
                 Text {
                     width: parent.width
                     text: startupVisualMessage
                     color: startupTheme.body
-                    font.pixelSize: 15
+                    font.pixelSize: Design.Foundation.textXxl
                     wrapMode: Text.WordWrap
                 }
 
@@ -3073,7 +3073,7 @@ Rectangle {
                 Text {
                     text: Math.round(startupVisualProgress) + "%  ·  正在接入系统"
                     color: startupTheme.body
-                    font.pixelSize: 13
+                    font.pixelSize: Design.Foundation.textLg
                 }
             }
         }

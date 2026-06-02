@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import "../components"
@@ -125,7 +125,7 @@ Item {
                                         Layout.fillWidth: true
                                         text: modelData.label
                                         color: chipStyle.label
-                                        font.pixelSize: 13
+                                        font.pixelSize: Design.Foundation.textLg
                                         font.weight: Font.DemiBold
                                         elide: Text.ElideRight
                                     }
@@ -158,7 +158,7 @@ Item {
                         width: parent.width
                         text: "插件在线  " + (studioBridge.status.pluginCount || 0) + "\n自动化  " + (studioBridge.status.automationCount || 0)
                         color: summaryBoxStyle.title
-                        font.pixelSize: 15
+                        font.pixelSize: Design.Foundation.textXxl
                         wrapMode: Text.WordWrap
 
                     }
@@ -193,7 +193,7 @@ Item {
                             visible: !!ListView.view && ListView.view.count === 0
                             text: "当前还没有资源索引记录.初始化工作区并执行任务后,这里会显示最近对象."
                             color: Design.Theme.palette.textMuted
-                            font.pixelSize: 12
+                            font.pixelSize: Design.Foundation.textMd
                             wrapMode: Text.WordWrap
                         }
 
@@ -210,8 +210,8 @@ Item {
                                 anchors.fill: parent
                                 anchors.margins: 12
                                 spacing: 6
-                                Text { text: (modelData.kind || "资源") + " | " + (modelData.title || modelData.id); color: resourcesPage.listItemSurface.text; font.pixelSize: 14; font.weight: Font.DemiBold }
-                                Text { text: modelData.summary || modelData.location || ""; color: resourcesPage.listItemSurface.body; font.pixelSize: 12; width: parent.width; wrapMode: Text.WordWrap }
+                                Text { text: (modelData.kind || "资源") + " | " + (modelData.title || modelData.id); color: resourcesPage.listItemSurface.text; font.pixelSize: Design.Foundation.textXl; font.weight: Font.DemiBold }
+                                Text { text: modelData.summary || modelData.location || ""; color: resourcesPage.listItemSurface.body; font.pixelSize: Design.Foundation.textMd; width: parent.width; wrapMode: Text.WordWrap }
                             }
                         }
                     }
@@ -239,7 +239,7 @@ Item {
                             visible: !!ListView.view && ListView.view.count === 0
                             text: "当前工作区还没有发现插件;安装扩展或放入 plugin.json 后,这里会出现."
                             color: Design.Theme.palette.textMuted
-                            font.pixelSize: 12
+                            font.pixelSize: Design.Foundation.textMd
                             wrapMode: Text.WordWrap
                         }
 
@@ -256,8 +256,8 @@ Item {
                                 anchors.fill: parent
                                 anchors.margins: 12
                                 spacing: 6
-                                Text { text: (modelData.name || modelData.id) + " | " + (modelData.version || "0.0.0"); color: resourcesPage.listItemSurface.text; font.pixelSize: 14; font.weight: Font.DemiBold }
-                                Text { text: modelData.description || modelData.rootPath || ""; color: resourcesPage.listItemSurface.body; font.pixelSize: 12; width: parent.width; wrapMode: Text.WordWrap }
+                                Text { text: (modelData.name || modelData.id) + " | " + (modelData.version || "0.0.0"); color: resourcesPage.listItemSurface.text; font.pixelSize: Design.Foundation.textXl; font.weight: Font.DemiBold }
+                                Text { text: modelData.description || modelData.rootPath || ""; color: resourcesPage.listItemSurface.body; font.pixelSize: Design.Foundation.textMd; width: parent.width; wrapMode: Text.WordWrap }
                             }
                         }
                     }

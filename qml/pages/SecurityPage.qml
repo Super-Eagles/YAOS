@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import "../components"
@@ -134,7 +134,7 @@ Item {
                                     Layout.preferredWidth: 72
                                     text: modelData.label
                                     color: Design.Theme.palette.textPrimary
-                                    font.pixelSize: 12
+                                    font.pixelSize: Design.Foundation.textMd
                                     font.weight: Font.DemiBold
                                     elide: Text.ElideRight
                                 }
@@ -184,7 +184,7 @@ Item {
                         Text {
                             text: "待审批  " + (studioBridge.status.pendingApprovalCount || 0) + "\n未读通知  " + (studioBridge.status.unreadNotificationCount || 0)
                             color: summaryBoxStyle.meta
-                            font.pixelSize: 13
+                            font.pixelSize: Design.Foundation.textLg
                             width: parent.width
                             wrapMode: Text.WordWrap
                         }
@@ -220,7 +220,7 @@ Item {
                             visible: !!ListView.view && ListView.view.count === 0
                             text: "当前没有待审批项.需要人工确认的工具调用会显示在这里."
                             color: Design.Theme.palette.textMuted
-                            font.pixelSize: 12
+                            font.pixelSize: Design.Foundation.textMd
                             wrapMode: Text.WordWrap
                         }
 
@@ -241,7 +241,7 @@ Item {
                                 Text {
                                     text: (modelData.toolName || "工具") + "  ·  " + (modelData.state || "pending")
                                     color: securityPage.listItemSurface.text
-                                    font.pixelSize: 14
+                                    font.pixelSize: Design.Foundation.textXl
                                     font.weight: Font.DemiBold
                                 }
 
@@ -249,7 +249,7 @@ Item {
                                     width: parent.width
                                     text: modelData.summary || modelData.paramsPreview || ""
                                     color: securityPage.listItemSurface.body
-                                    font.pixelSize: 12
+                                    font.pixelSize: Design.Foundation.textMd
                                     wrapMode: Text.WordWrap
                                 }
 
@@ -304,7 +304,7 @@ Item {
                                 visible: !!ListView.view && ListView.view.count === 0
                                 text: "当前没有通知.运行时产生需要关注的系统消息后,这里会显示."
                                 color: Design.Theme.palette.textMuted
-                                font.pixelSize: 12
+                                font.pixelSize: Design.Foundation.textMd
                                 wrapMode: Text.WordWrap
                             }
 
@@ -322,8 +322,8 @@ Item {
                                     anchors.margins: 12
                                     spacing: 6
 
-                                    Text { text: modelData.title || "通知"; color: securityPage.listItemSurface.text; font.pixelSize: 14; font.weight: Font.DemiBold }
-                                    Text { text: modelData.body || ""; color: securityPage.listItemSurface.body; font.pixelSize: 12; width: parent.width; wrapMode: Text.WordWrap }
+                                    Text { text: modelData.title || "通知"; color: securityPage.listItemSurface.text; font.pixelSize: Design.Foundation.textXl; font.weight: Font.DemiBold }
+                                    Text { text: modelData.body || ""; color: securityPage.listItemSurface.body; font.pixelSize: Design.Foundation.textMd; width: parent.width; wrapMode: Text.WordWrap }
                                 }
                             }
                         }

@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import "../theme" as Design
@@ -250,7 +250,7 @@ NeoCard {
             border.width: 1
             border.color: summaryBoxStyle.border
 
-            ColumnLayout {
+            Column {
                 id: delegationTemplateSummaryColumn
                 x: 11
                 y: 11
@@ -258,16 +258,16 @@ NeoCard {
                 spacing: 6
 
                 Text {
-                    Layout.fillWidth: true
+                    width: parent.width
                     text: "当前模板库  " + String(templateSummaryBridge ? (templateSummaryBridge.templateCount || 0) : 0) + " 条"
                     color: summaryBoxStyle.title
-                    font.pixelSize: 13
+                    font.pixelSize: Design.Foundation.textLg
                     font.weight: Font.DemiBold
                     wrapMode: Text.WordWrap
                 }
 
                 Text {
-                    Layout.fillWidth: true
+                    width: parent.width
                     text: (templateSummaryBridge && templateSummaryBridge.hasSelectedTemplate)
                         ? ("已选中  " + (templateSummaryBridge.selectedTemplateName || templateSummaryBridge.selectedTemplateId || "模板") +
                            "  ·  类型  " + delegationTemplateKindTitle(templateSummaryBridge.selectedTemplateKind || "single"))
@@ -275,7 +275,7 @@ NeoCard {
                     color: (templateSummaryBridge && templateSummaryBridge.hasSelectedTemplate)
                         ? Design.Theme.section("template").accent
                         : summaryBoxStyle.text
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     wrapMode: Text.WordWrap
                 }
             }
@@ -383,7 +383,7 @@ NeoCard {
             visible: root.previewSourceLabel.length > 0
             text: "来源  " + root.previewSourceLabel
             color: listItemStyle.meta
-            font.pixelSize: 11
+            font.pixelSize: Design.Foundation.textSm
             wrapMode: Text.WordWrap
         }
 
@@ -410,7 +410,7 @@ NeoCard {
                     anchors.centerIn: parent
                     text: "候选  " + String((root.diagnosticResults || []).length)
                     color: routingMetricPrimary.chipStyle.value
-                    font.pixelSize: 11
+                    font.pixelSize: Design.Foundation.textSm
                     font.weight: Font.DemiBold
                 }
             }
@@ -430,7 +430,7 @@ NeoCard {
                     anchors.centerIn: parent
                     text: "建议节点  " + ((((root.selectedCandidate || {}).node || {}).displayName || (root.selectedCandidate || {}).nodeId || "未选择"))
                     color: Design.Theme.status("success").text
-                    font.pixelSize: 11
+                    font.pixelSize: Design.Foundation.textSm
                     font.weight: Font.DemiBold
                 }
             }
@@ -450,7 +450,7 @@ NeoCard {
                     anchors.centerIn: parent
                     text: "快照已变化"
                     color: Design.Theme.status("warning").text
-                    font.pixelSize: 11
+                    font.pixelSize: Design.Foundation.textSm
                     font.weight: Font.DemiBold
                 }
             }
@@ -471,7 +471,7 @@ NeoCard {
             color: root.previewResult.pending
                 ? Design.Theme.status("info").text
                 : (root.previewResult.resolved ? Design.Theme.status("success").text : Design.Theme.status("warning").text)
-            font.pixelSize: 12
+            font.pixelSize: Design.Foundation.textMd
             wrapMode: Text.WordWrap
         }
 
@@ -480,7 +480,7 @@ NeoCard {
             visible: root.previewDirty && !root.previewResult.pending
             text: "运行时节点或配置快照已变化,当前预演结果可能过期.点击“刷新预演”获取最新结果."
             color: Design.Theme.status("warning").text
-            font.pixelSize: 11
+            font.pixelSize: Design.Foundation.textSm
             wrapMode: Text.WordWrap
         }
 
@@ -489,7 +489,7 @@ NeoCard {
             visible: (root.previewResult.routeSummary || "").length > 0
             text: "路由摘要  " + (root.previewResult.routeSummary || "")
             color: Design.Theme.section("routing").accent
-            font.pixelSize: 12
+            font.pixelSize: Design.Foundation.textMd
             wrapMode: Text.WordWrap
         }
 
@@ -498,7 +498,7 @@ NeoCard {
             visible: (root.previewResult.labels || []).length > 0
             text: "标签  " + joinValues(root.previewResult.labels || [])
             color: listItemStyle.meta
-            font.pixelSize: 11
+            font.pixelSize: Design.Foundation.textSm
             wrapMode: Text.WordWrap
         }
 
@@ -507,7 +507,7 @@ NeoCard {
             visible: (root.previewResult.contextRefs || []).length > 0
             text: "上下文引用  " + contextRefSummary(root.previewResult.contextRefs || [])
             color: listItemStyle.meta
-            font.pixelSize: 11
+            font.pixelSize: Design.Foundation.textSm
             wrapMode: Text.WordWrap
         }
 
@@ -521,7 +521,7 @@ NeoCard {
             implicitHeight: templateColumn.implicitHeight + 22
             clip: true
 
-            ColumnLayout {
+            Column {
                 id: templateColumn
                 x: 11
                 y: 11
@@ -529,7 +529,7 @@ NeoCard {
                 spacing: 8
 
                 GridLayout {
-                    Layout.fillWidth: true
+                    width: parent.width
                     columns: denseFormColumns(parent.width)
                     columnSpacing: 10
                     rowSpacing: 10
@@ -544,7 +544,7 @@ NeoCard {
                                ((((root.selectedCandidate || {}).node || {}).displayName ||
                                  (root.selectedCandidate || {}).nodeId || "node")))
                         color: detailSummaryBoxStyle.title
-                        font.pixelSize: 13
+                        font.pixelSize: Design.Foundation.textLg
                         font.weight: Font.DemiBold
                         elide: Text.ElideRight
                     }
@@ -605,16 +605,16 @@ NeoCard {
                 }
 
                 Text {
-                    Layout.fillWidth: true
+                    width: parent.width
                     text: root.selectedTemplateSummary
                     color: Design.Theme.section("routing").accent
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     wrapMode: Text.WordWrap
                 }
 
                 ReadOnlyTextView {
                     id: routingTemplateView
-                    Layout.fillWidth: true
+                    width: parent.width
                     Layout.preferredHeight: 132
                     wrapMode: TextEdit.WrapAnywhere
                     textFormat: TextEdit.PlainText
@@ -652,14 +652,16 @@ NeoCard {
                     }
                 }
 
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.margins: 12
+                Row {
+                    x: 12
+                    y: 12
+                    width: parent.width - 24
+                    height: parent.height - 24
                     spacing: 12
 
                     Rectangle {
-                        Layout.preferredWidth: 10
-                        Layout.fillHeight: true
+                        width: 10
+                        height: parent.height
                         radius: 5
                         color: modelData.matched
                             ? (modelData.rank === 1 ? Design.Theme.section("routing").accent : Design.Theme.status("success").accent)
@@ -668,7 +670,7 @@ NeoCard {
 
                     Column {
                         id: routingCandidateColumn
-                        Layout.fillWidth: true
+                        width: parent.width - 22
                         spacing: 5
 
                         Text {
@@ -678,7 +680,7 @@ NeoCard {
                                   (modelData.isLocal ? "  [本地]" : "") +
                                   (modelData.matched ? "" : "  [已过滤]")
                             color: itemStyle.title
-                            font.pixelSize: 14
+                            font.pixelSize: Design.Foundation.textXl
                             font.weight: Font.DemiBold
                             elide: Text.ElideRight
                         }
@@ -691,7 +693,7 @@ NeoCard {
                                    "  |  权重 " + String(Number(modelData.weight || 0)))
                                 : modelData.reasonText
                             color: modelData.matched ? Design.Theme.section("routing").accent : dangerListItemStyle.text
-                            font.pixelSize: 12
+                            font.pixelSize: Design.Foundation.textMd
                             wrapMode: Text.WordWrap
                         }
 
@@ -699,7 +701,7 @@ NeoCard {
                             width: parent.width
                             text: nodeIdentityText(modelData.node || {})
                             color: itemStyle.body
-                            font.pixelSize: 11
+                            font.pixelSize: Design.Foundation.textSm
                             elide: Text.ElideRight
                         }
 
@@ -707,7 +709,7 @@ NeoCard {
                             width: parent.width
                             text: nodeCapabilityText(modelData.node || {})
                             color: itemStyle.meta
-                            font.pixelSize: 11
+                            font.pixelSize: Design.Foundation.textSm
                             elide: Text.ElideRight
                         }
                     }

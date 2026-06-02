@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Layouts 1.14
 import "../theme" as Design
 
@@ -26,15 +26,15 @@ NeoCard {
         return app ? app.read.apply(app, arguments) : undefined;
     }
 
-    ColumnLayout {
-        Layout.fillWidth: true
+    Column {
+        width: parent.width
         spacing: 12
 
         Rectangle {
             id: gatewaySummaryBox
             property var gatewaySummaryTheme: Design.Theme.summaryBox("default")
-            Layout.fillWidth: true
-            implicitHeight: gatewaySummaryRow.implicitHeight + 12
+            width: parent.width
+            implicitHeight: 32
             radius: 8
             color: gatewaySummaryTheme.background
             border.width: 1
@@ -52,7 +52,7 @@ NeoCard {
                     color: studioBridge && studioBridge.status && studioBridge.status.gatewayRunning
                         ? Design.Theme.status("success").text
                         : Design.Theme.status("warning").text
-                    font.pixelSize: 11
+                    font.pixelSize: Design.Foundation.textSm
                     font.weight: Font.Black
                         font.letterSpacing: 0.5
                 }
@@ -68,23 +68,23 @@ NeoCard {
                     Layout.fillWidth: true
                     text: read("gateway.host", "0.0.0.0") + ":" + read("gateway.port", 18790).toString()
                     color: gatewaySummaryBox.gatewaySummaryTheme.meta
-                    font.pixelSize: 11
+                    font.pixelSize: Design.Foundation.textSm
                     elide: Text.ElideRight
                 }
             }
         }
 
         Text {
-            Layout.fillWidth: true
+            width: parent.width
             text: "监听设置"
             color: Design.Theme.section("gateway").accent
-            font.pixelSize: 11
+            font.pixelSize: Design.Foundation.textSm
             font.weight: Font.Black
                         font.letterSpacing: 0.5
         }
 
         GridLayout {
-            Layout.fillWidth: true
+            width: parent.width
             columns: 2
             columnSpacing: 10
             rowSpacing: 10
@@ -105,10 +105,10 @@ NeoCard {
         }
 
         Text {
-            Layout.fillWidth: true
+            width: parent.width
             text: "心跳与保活"
             color: Design.Theme.section("gateway").accent
-            font.pixelSize: 11
+            font.pixelSize: Design.Foundation.textSm
             font.weight: Font.Black
                         font.letterSpacing: 0.5
         }
@@ -120,7 +120,7 @@ NeoCard {
         }
 
         GridLayout {
-            Layout.fillWidth: true
+            width: parent.width
             columns: 1
             rowSpacing: 10
 

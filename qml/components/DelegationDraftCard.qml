@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import "../theme" as Design
@@ -174,7 +174,7 @@ NeoCard {
             border.width: 1
             border.color: summaryBoxStyle.border
 
-            ColumnLayout {
+            Column {
                 id: delegationDraftSummaryColumn
                 x: 11
                 y: 11
@@ -182,21 +182,21 @@ NeoCard {
                 spacing: 6
 
                 Text {
-                    Layout.fillWidth: true
+                    width: parent.width
                     text: root.draftSourceLabel.length > 0
                         ? ("来源  " + root.draftSourceLabel)
                         : "来源  尚未带入"
                     color: root.draftSourceLabel.length > 0 ? Design.Theme.section("draft").accent : listItemStyle.text
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     wrapMode: Text.WordWrap
                 }
 
                 Text {
-                    Layout.fillWidth: true
+                    width: parent.width
                     text: "任务  " + (root.taskText.trim().length > 0 ? "已填写" : "未填写") +
                           "  ·  路由约束  " + String(root.activeConstraintCount) + " 项"
                     color: summaryBoxStyle.text
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     wrapMode: Text.WordWrap
                 }
             }
@@ -389,7 +389,7 @@ NeoCard {
                    "  |  回放预演时仍会按角色,标签,工具等条件重新排序,不会强制固定节点.")
                 : "这份草稿已经可以直接作为 spawn 工具负载.修改角色,标签,工具等条件后,可点击“回放预演”查看新的候选排序."
             color: listItemStyle.text
-            font.pixelSize: 11
+            font.pixelSize: Design.Foundation.textSm
             wrapMode: Text.WordWrap
         }
 

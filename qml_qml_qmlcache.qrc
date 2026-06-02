@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<RCC>
+    <qresource prefix="/app">
+        <file alias="YAOS.ico">assets/YAOS.ico</file>
+        <file alias="main.jpg">assets/main.jpg</file>
+    </qresource>
+    <qresource prefix="/qml">
+        <file alias="theme/qmldir">qml/theme/qmldir</file>
+    </qresource>
+</RCC>

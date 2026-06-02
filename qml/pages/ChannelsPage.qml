@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import "../components"
@@ -73,7 +73,7 @@ Item {
                             width: parent.width
                             text: "启用频道  " + (((studioBridge.status.enabledChannels || []).join(", ")) || "无")
                             color: summaryBoxStyle.title
-                            font.pixelSize: 14
+                            font.pixelSize: Design.Foundation.textXl
                             wrapMode: Text.WordWrap
                         }
 
@@ -81,7 +81,7 @@ Item {
                             width: parent.width
                             text: "进度播报  " + ((app && app.read("channels.sendProgress", true)) ? "开启" : "关闭")
                             color: listItemStyle.meta
-                            font.pixelSize: 13
+                            font.pixelSize: Design.Foundation.textLg
                             wrapMode: Text.WordWrap
                         }
 
@@ -89,7 +89,7 @@ Item {
                             width: parent.width
                             text: "工具提示  " + ((app && app.read("channels.sendToolHints", false)) ? "开启" : "关闭")
                             color: listItemStyle.meta
-                            font.pixelSize: 13
+                            font.pixelSize: Design.Foundation.textLg
                             wrapMode: Text.WordWrap
                         }
                     }

@@ -402,13 +402,13 @@ Item {
                                     Text {
                                         text: modelData.label
                                         color: chipStyle.label
-                                        font.pixelSize: 11
+                                        font.pixelSize: Design.Foundation.textSm
                                     }
 
                                     Text {
                                         text: modelData.value
                                         color: chipStyle.value
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         font.weight: Font.Black
                                     }
                                 }
@@ -420,7 +420,7 @@ Item {
                         Layout.fillWidth: true
                         text: "内置占位符：`{{now}}`,`{{today}}`,`{{automation.name}}`,`{{automation.id}}`,`{{run.source}}`,`{{run.count}}`.定时自动化会写入 `cron/jobs.json`,真正触发依赖顶部网关服务处于运行中."
                         color: listItemStyle.meta
-                        font.pixelSize: 12
+                        font.pixelSize: Design.Foundation.textMd
                         wrapMode: Text.WordWrap
                     }
                 }
@@ -467,7 +467,7 @@ Item {
                             Text {
                                 text: ((studioBridge.automations || []).length || 0) + " 条"
                                 color: Design.Theme.section("automation").accent
-                                font.pixelSize: 12
+                                font.pixelSize: Design.Foundation.textMd
                             }
                         }
 
@@ -491,7 +491,7 @@ Item {
                                         ? (automationPage.currentAutomation().name || automationPage.currentAutomation().id)
                                         : "未选中自动化"
                                     color: summaryBoxStyle.title
-                                    font.pixelSize: 13
+                                    font.pixelSize: Design.Foundation.textLg
                                     font.weight: Font.DemiBold
                                     elide: Text.ElideRight
                                 }
@@ -503,7 +503,7 @@ Item {
                                            ((automationPage.currentAutomation().enabled === false) ? "  ·  已停用" : "  ·  已启用"))
                                         : "从左侧列表选择一条自动化，右侧会展开完整配置和运行历史"
                                     color: automationPage.currentAutomation().id ? Design.Theme.section("automation").accent : summaryBoxStyle.text
-                                    font.pixelSize: 12
+                                    font.pixelSize: Design.Foundation.textMd
                                     wrapMode: Text.WordWrap
                                 }
                             }
@@ -542,7 +542,7 @@ Item {
                                     Text {
                                         text: modelData.name || modelData.id || "自动化"
                                         color: itemStyle.title
-                                        font.pixelSize: 14
+                                        font.pixelSize: Design.Foundation.textXl
                                         font.weight: Font.DemiBold
                                         width: parent.width
                                         elide: Text.ElideRight
@@ -552,7 +552,7 @@ Item {
                                         text: automationScheduleSummary(modelData) +
                                               ((modelData.enabled === false) ? "  ·  已停用" : "  ·  已启用")
                                         color: modelData.enabled === false ? Design.Theme.status("error").text : Design.Theme.section("automation").accent
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         width: parent.width
                                         elide: Text.ElideRight
                                     }
@@ -562,7 +562,7 @@ Item {
                                               "  ·  " +
                                               ((modelData.model || "").length > 0 ? modelData.model : "默认模型")
                                         color: itemStyle.text
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         width: parent.width
                                         elide: Text.ElideRight
                                     }
@@ -570,7 +570,7 @@ Item {
                                     Text {
                                         text: firstLines(modelData.lastResultPreview || modelData.prompt || "", 120)
                                         color: itemStyle.body
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         width: parent.width
                                         wrapMode: Text.WordWrap
                                     }
@@ -623,7 +623,7 @@ Item {
                                         ? ("当前编辑  " + (automationPage.currentAutomation().name || automationPage.selectedAutomationId))
                                         : "当前正在创建一条新的自动化"
                                     color: summaryBoxStyle.title
-                                    font.pixelSize: 13
+                                    font.pixelSize: Design.Foundation.textLg
                                     font.weight: Font.DemiBold
                                     wrapMode: Text.WordWrap
                                 }
@@ -634,7 +634,7 @@ Item {
                                           "  ·  厂商  " + providerTitle(automationPage.draftProvider || "auto") +
                                           "  ·  模型  " + ((automationPage.draftModel || "").length > 0 ? automationPage.draftModel : "默认模型")
                                     color: summaryBoxStyle.meta
-                                    font.pixelSize: 12
+                                    font.pixelSize: Design.Foundation.textMd
                                     wrapMode: Text.WordWrap
                                 }
                             }
@@ -727,7 +727,7 @@ Item {
                             Layout.fillWidth: true
                             text: automationPage.scheduleHint()
                             color: listItemStyle.meta
-                            font.pixelSize: 12
+                            font.pixelSize: Design.Foundation.textMd
                             wrapMode: Text.WordWrap
                         }
 
@@ -749,7 +749,7 @@ Item {
                             Layout.fillWidth: true
                             text: "执行提示词"
                             color: Design.Theme.section("draft").accent
-                            font.pixelSize: 11
+                            font.pixelSize: Design.Foundation.textSm
                             font.weight: Font.Black
                         }
 
@@ -853,7 +853,7 @@ Item {
                                         ? automationStatusLabel(automationPage.currentAutomation().lastStatus || "")
                                         : "未选择自动化"
                                     color: detailSummaryBoxStyle.title
-                                    font.pixelSize: 15
+                                    font.pixelSize: Design.Foundation.textXxl
                                     font.weight: Font.DemiBold
                                 }
 
@@ -861,7 +861,7 @@ Item {
                                     width: parent.width
                                     text: "调度: " + automationScheduleSummary(automationPage.currentAutomation())
                                     color: Design.Theme.section("runtime").accent
-                                    font.pixelSize: 12
+                                    font.pixelSize: Design.Foundation.textMd
                                     wrapMode: Text.WordWrap
                                 }
 
@@ -873,7 +873,7 @@ Item {
                                         Layout.fillWidth: true
                                         text: "下次运行: " + formatIsoDateTime((automationPage.currentAutomation().nextRunAt || ""))
                                         color: listItemStyle.text
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         wrapMode: Text.WordWrap
                                     }
 
@@ -881,7 +881,7 @@ Item {
                                         Layout.fillWidth: true
                                         text: "最近运行  " + formatIsoDateTime((automationPage.currentAutomation().lastRunAt || ""))
                                         color: listItemStyle.text
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         wrapMode: Text.WordWrap
                                     }
                                 }
@@ -893,7 +893,7 @@ Item {
                                             ? automationPage.currentAutomation().model
                                             : "默认模型")
                                     color: listItemStyle.text
-                                    font.pixelSize: 12
+                                    font.pixelSize: Design.Foundation.textMd
                                     width: parent.width
                                     elide: Text.ElideRight
                                 }
@@ -904,7 +904,7 @@ Item {
                                             ? ("  ·  定时任务 ID: " + automationPage.currentAutomation().cronJobId)
                                             : "")
                                     color: listItemStyle.meta
-                                    font.pixelSize: 12
+                                    font.pixelSize: Design.Foundation.textMd
                                     width: parent.width
                                     wrapMode: Text.WordWrap
                                 }
@@ -915,7 +915,7 @@ Item {
                                     width: parent.width
                                     text: "当前网关未运行，定时自动化已保存但不会自动触发"
                                     color: warningSummaryBoxStyle.text
-                                    font.pixelSize: 12
+                                    font.pixelSize: Design.Foundation.textMd
                                     wrapMode: Text.WordWrap
                                 }
 
@@ -971,7 +971,7 @@ Item {
                                                     text: (modelData.automationName || "自动化") + "  ·  " +
                                                           ((modelData.triggerSource || "manual") === "scheduled" ? "定时触发" : "手动触发")
                                                     color: historyStyle.title
-                                                    font.pixelSize: 13
+                                                    font.pixelSize: Design.Foundation.textLg
                                                     font.weight: Font.DemiBold
                                                     elide: Text.ElideRight
                                                 }
@@ -993,7 +993,7 @@ Item {
                                                       " / " +
                                                       ((modelData.model || "").length > 0 ? modelData.model : "默认模型")
                                                 color: modelData.status === "error" ? Design.Theme.status("error").text : Design.Theme.section("runtime").accent
-                                                font.pixelSize: 12
+                                                font.pixelSize: Design.Foundation.textMd
                                                 wrapMode: Text.WordWrap
                                             }
 
@@ -1001,7 +1001,7 @@ Item {
                                                 width: parent.width
                                                 text: firstLines(modelData.resultPreview || modelData.error || "", 220)
                                                 color: historyStyle.text
-                                                font.pixelSize: 12
+                                                font.pixelSize: Design.Foundation.textMd
                                                 wrapMode: Text.WordWrap
                                             }
                                         }
@@ -1015,7 +1015,7 @@ Item {
                                         ? "选中一条自动化后，这里会显示它的运行历史。"
                                         : "这条自动化还没有运行记录."
                                     color: listItemStyle.meta
-                                    font.pixelSize: 12
+                                    font.pixelSize: Design.Foundation.textMd
                                     wrapMode: Text.WordWrap
                                 }
                             }

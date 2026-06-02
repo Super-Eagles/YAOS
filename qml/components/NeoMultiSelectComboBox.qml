@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import "../theme" as Design
@@ -73,7 +73,7 @@ Item {
                 ? ("已选 " + root.selectedItems.length + " 个模型")
                 : root.placeholderText
             color: root.selectedItems.length > 0 ? root.comboTheme.text : root.fieldTheme.placeholder
-            font.pixelSize: 12
+            font.pixelSize: Design.Foundation.textMd
             font.letterSpacing: 0.2
             elide: Text.ElideRight
             verticalAlignment: Text.AlignVCenter
@@ -83,7 +83,7 @@ Item {
             id: indicator
             text: popup.visible ? "▴" : "▾"
             color: popup.visible ? root.comboTheme.indicatorOpen : (mouseArea.containsMouse ? root.comboTheme.indicatorHover : root.comboTheme.indicator)
-            font.pixelSize: 11
+            font.pixelSize: Design.Foundation.textSm
             anchors.right: parent.right; anchors.rightMargin: 10
             anchors.verticalCenter: parent.verticalCenter
             Behavior on color { ColorAnimation { duration: Design.Theme.foundation.durationFast } }
@@ -185,7 +185,7 @@ Item {
                             Layout.fillWidth: true
                             text: modelData
                             color: isChecked ? root.comboTheme.itemTextActive : root.comboTheme.itemText
-                            font.pixelSize: 12
+                            font.pixelSize: Design.Foundation.textMd
                             elide: Text.ElideRight
                             verticalAlignment: Text.AlignVCenter
                         }
@@ -209,7 +209,7 @@ Item {
                 visible: listView.count === 0
                 text: "未找到匹配模型"
                 color: root.comboTheme.itemText
-                font.pixelSize: 11
+                font.pixelSize: Design.Foundation.textSm
                 horizontalAlignment: Text.AlignHCenter
             }
         }

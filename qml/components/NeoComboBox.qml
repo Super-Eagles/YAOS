@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import "../theme" as Design
 
@@ -20,7 +20,7 @@ ComboBox {
             ? root.comboTheme.indicatorOpen
             : (root.hovered ? root.comboTheme.indicatorHover : root.comboTheme.indicator)
         Behavior on color { ColorAnimation { duration: Design.Theme.foundation.durationFast; easing.type: Easing.OutExpo } }
-        font.pixelSize: 11
+        font.pixelSize: Design.Foundation.textSm
         anchors.right: parent.right
         anchors.rightMargin: 10
         anchors.verticalCenter: parent.verticalCenter
@@ -31,7 +31,7 @@ ComboBox {
         rightPadding: 28
         text: root.displayText
         color: root.comboTheme.text
-        font.pixelSize: 12
+        font.pixelSize: Design.Foundation.textMd
         font.letterSpacing: 0.2
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
@@ -54,7 +54,7 @@ ComboBox {
                 return modelData !== undefined && modelData !== null ? String(modelData) : "";
             }
             color: comboDelegate.highlighted ? root.comboTheme.itemTextActive : root.comboTheme.itemText
-            font.pixelSize: 12
+            font.pixelSize: Design.Foundation.textMd
             font.weight: comboDelegate.highlighted ? Font.DemiBold : Font.Normal
             font.letterSpacing: 0.2
             verticalAlignment: Text.AlignVCenter

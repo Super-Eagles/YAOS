@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtGraphicalEffects 1.14
 import "../theme" as Design
@@ -127,7 +127,7 @@ Button {
             ? root.accent
             : (root.hovered ? Design.Theme.palette.textPrimary : Design.Theme.palette.textSecondary)
         Behavior on color { ColorAnimation { duration: Design.Theme.foundation.durationFast; easing.type: Easing.OutExpo } }
-        font.pixelSize: 12
+        font.pixelSize: Design.Foundation.textMd
         font.weight: root.checked ? Font.DemiBold : Font.Normal
         font.letterSpacing: root.checked ? 0.4 : 0
         verticalAlignment: Text.AlignVCenter

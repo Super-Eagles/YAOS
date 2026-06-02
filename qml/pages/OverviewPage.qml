@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import "../components"
@@ -269,7 +269,7 @@ Item {
                                         anchors.centerIn: parent
                                         text: signalTagText
                                         color: glowColor
-                                        font.pixelSize: 11
+                                        font.pixelSize: Design.Foundation.textSm
                                         font.weight: Font.DemiBold
                                     }
                                 }
@@ -279,7 +279,7 @@ Item {
                                 Layout.fillWidth: true
                                 text: signalSummaryText
                                 color: summaryBoxStyle.text
-                                font.pixelSize: 12
+                                font.pixelSize: Design.Foundation.textMd
                                 wrapMode: Text.WordWrap
                                 lineHeight: 1.25
                             }
@@ -335,7 +335,7 @@ Item {
                                              anchors.centerIn: parent
                                              text: "当前判断"
                                              color: glowColor
-                                             font.pixelSize: 9
+                                             font.pixelSize: Design.Foundation.textXxs
                                              font.weight: Font.DemiBold
                                          }
                                      }
@@ -344,7 +344,7 @@ Item {
                                          Layout.fillWidth: true
                                          text: signalFootnoteText
                                          color: summaryBoxStyle.text
-                                         font.pixelSize: 11
+                                         font.pixelSize: Design.Foundation.textSm
                                          wrapMode: Text.WordWrap
                                          opacity: 0.85
                                      }
@@ -386,7 +386,7 @@ Item {
                             visible: !!ListView.view && ListView.view.count === 0
                             text: "当前还没有任务记录。开始一轮对话或提交委托后,这里会显示最近执行记录。"
                             color: Design.Theme.palette.textMuted
-                            font.pixelSize: 12
+                            font.pixelSize: Design.Foundation.textMd
                             wrapMode: Text.WordWrap
                         }
 
@@ -420,7 +420,7 @@ Item {
                                     Text {
                                         text: taskTreePrefix(modelData.depth) + (modelData.title || modelData.kind || modelData.id)
                                         color: overviewPage.listItemSurface.title
-                                        font.pixelSize: 15
+                                        font.pixelSize: Design.Foundation.textXxl
                                         font.weight: Font.DemiBold
                                         elide: Text.ElideRight
                                         width: parent.width
@@ -429,14 +429,14 @@ Item {
                                     Text {
                                         text: taskTreeSummary(modelData)
                                         color: overviewPage.listItemSurface.accent
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                     }
 
                                     Text {
                                         width: parent.width
                                         text: taskTraceSummary(modelData)
                                         color: overviewPage.listItemSurface.meta
-                                        font.pixelSize: 11
+                                        font.pixelSize: Design.Foundation.textSm
                                         elide: Text.ElideRight
                                     }
 
@@ -445,7 +445,7 @@ Item {
                                         text: firstLines(modelData.resultPreview || modelData.summary || modelData.error || "", 160)
                                         color: overviewPage.listItemSurface.body
                                         wrapMode: Text.WordWrap
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                     }
 
                                     ActionButton {
@@ -485,7 +485,7 @@ Item {
                             visible: !!ListView.view && ListView.view.count === 0
                             text: "当前还没有系统事件。执行对话,工具或服务操作后,这里会开始累积遥测。"
                             color: Design.Theme.palette.textMuted
-                            font.pixelSize: 12
+                            font.pixelSize: Design.Foundation.textMd
                             wrapMode: Text.WordWrap
                         }
 
@@ -511,14 +511,14 @@ Item {
                                         color: modelData.level === "error"
                                             ? Design.Theme.status("error").accent
                                             : Design.Theme.status("info").text
-                                        font.pixelSize: 11
+                                        font.pixelSize: Design.Foundation.textSm
                                         font.weight: Font.Black
                                     }
 
                                     Text {
                                         text: modelData.category || "事件"
                                         color: overviewPage.listItemSurface.text
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                     }
                                 }
 
@@ -526,14 +526,14 @@ Item {
                                     width: parent.width
                                     text: modelData.message || ""
                                     color: overviewPage.listItemSurface.text
-                                    font.pixelSize: 13
+                                    font.pixelSize: Design.Foundation.textLg
                                     wrapMode: Text.WordWrap
                                 }
 
                                 Text {
                                     text: modelData.timestamp || ""
                                     color: overviewPage.listItemSurface.meta
-                                    font.pixelSize: 11
+                                    font.pixelSize: Design.Foundation.textSm
                                 }
                             }
                         }
@@ -596,7 +596,7 @@ Item {
                                         width: parent.width
                                         text: modelData.title || modelData.rootId || "任务"
                                         color: overviewPage.listItemSurface.title
-                                        font.pixelSize: 15
+                                        font.pixelSize: Design.Foundation.textXxl
                                         font.weight: Font.DemiBold
                                         elide: Text.ElideRight
                                     }
@@ -604,7 +604,7 @@ Item {
                                     Text {
                                         text: taskGroupSummary(modelData)
                                         color: overviewPage.listItemSurface.accent
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                     }
 
                                     Text {
@@ -612,7 +612,7 @@ Item {
                                         width: parent.width
                                         text: modelData.routeSummary
                                         color: overviewPage.listItemSurface.meta
-                                        font.pixelSize: 11
+                                        font.pixelSize: Design.Foundation.textSm
                                         elide: Text.ElideRight
                                     }
 
@@ -622,7 +622,7 @@ Item {
                                         text: firstLines(modelData.preview || "", 220)
                                         color: overviewPage.listItemSurface.body
                                         wrapMode: Text.WordWrap
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                     }
 
                                     ActionButton {
@@ -651,7 +651,7 @@ Item {
                         visible: taskTreeCard.groupedTasks.length === 0
                         text: "还没有可聚合的任务树。后续的扇出任务和委托任务会在这里按根任务汇总。"
                         color: Design.Theme.palette.textMuted
-                        font.pixelSize: 12
+                        font.pixelSize: Design.Foundation.textMd
                         wrapMode: Text.WordWrap
                     }
                 }
@@ -695,14 +695,14 @@ Item {
                                 width: parent.width - 22
                                 spacing: 6
 
-                                Text { text: "模型与路由"; color: overviewPage.summarySurface.title; font.pixelSize: 11; font.weight: Font.Black }
-                                Text { text: "默认模型  " + (studioBridge.status.defaultModel || "未配置"); color: overviewPage.summarySurface.text; font.pixelSize: 14 }
+                                Text { text: "模型与路由"; color: overviewPage.summarySurface.title; font.pixelSize: Design.Foundation.textSm; font.weight: Font.Black }
+                                Text { text: "默认模型  " + (studioBridge.status.defaultModel || "未配置"); color: overviewPage.summarySurface.text; font.pixelSize: Design.Foundation.textXl }
                                 Text {
                                     Layout.fillWidth: true
                                     text: "路由厂商  " + providerTitle(studioBridge.status.routedProvider || "auto") +
                                           "  ·  实际后端  " + (studioBridge.status.actualBackend || "未知")
                                     color: overviewPage.summarySurface.muted
-                                    font.pixelSize: 12
+                                    font.pixelSize: Design.Foundation.textMd
                                     wrapMode: Text.WordWrap
                                 }
                             }
@@ -725,7 +725,7 @@ Item {
                                 width: parent.width - 22
                                 spacing: 6
 
-                                Text { text: "部署与服务"; color: overviewPage.summaryAltSurface.title; font.pixelSize: 11; font.weight: Font.Black }
+                                Text { text: "部署与服务"; color: overviewPage.summaryAltSurface.title; font.pixelSize: Design.Foundation.textSm; font.weight: Font.Black }
                                 Text {
                                     Layout.fillWidth: true
                                     text: "部署模式  " + ((read("deployment.mode", "standalone") === "cluster") ? "集群模式" : "单机模式") +
@@ -733,7 +733,7 @@ Item {
                                                              ? "远端运行"
                                                              : ((read("runtime.mode", "embedded") === "daemon") ? "守护进程" : "内嵌运行"))
                                     color: overviewPage.summaryAltSurface.text
-                                    font.pixelSize: 12
+                                    font.pixelSize: Design.Foundation.textMd
                                     wrapMode: Text.WordWrap
                                 }
                                 Text {
@@ -745,26 +745,26 @@ Item {
                                                       ? "本地混合"
                                                       : "传统 Markdown"))
                                     color: overviewPage.summaryAltSurface.muted
-                                    font.pixelSize: 12
+                                    font.pixelSize: Design.Foundation.textMd
                                     wrapMode: Text.WordWrap
                                 }
                                 Text {
                                     text: "记忆服务  " + memoryServiceStatusText() + "  |  " + memoryServiceEndpointText()
                                     color: studioBridge.status.memoryServiceReachable ? Design.Theme.status("success").text : overviewPage.summaryAltSurface.meta
-                                    font.pixelSize: 12
+                                    font.pixelSize: Design.Foundation.textMd
                                     wrapMode: Text.WordWrap
                                 }
                                 Text {
                                     text: "运行时服务  " + runtimeServiceStatusText() + "  |  " +
                                           runtimeEndpointText() + "  |  广播地址 " + runtimeAdvertiseEndpointText()
                                     color: studioBridge.status.runtimeServiceReachable ? Design.Theme.status("success").text : overviewPage.summaryAltSurface.meta
-                                    font.pixelSize: 12
+                                    font.pixelSize: Design.Foundation.textMd
                                     wrapMode: Text.WordWrap
                                 }
                                 Text {
                                     text: "控制平面  " + controlPlaneStatusText() + "  |  " + controlPlaneEndpointText()
                                     color: studioBridge.status.controlPlaneReachable ? Design.Theme.status("success").text : overviewPage.summaryAltSurface.meta
-                                    font.pixelSize: 12
+                                    font.pixelSize: Design.Foundation.textMd
                                     wrapMode: Text.WordWrap
                                 }
                             }
@@ -787,13 +787,13 @@ Item {
                                 width: parent.width - 22
                                 spacing: 6
 
-                                Text { text: "租约与频道"; color: overviewPage.summarySurface.title; font.pixelSize: 11; font.weight: Font.Black }
+                                Text { text: "租约与频道"; color: overviewPage.summarySurface.title; font.pixelSize: Design.Foundation.textSm; font.weight: Font.Black }
                                 Text {
                                     visible: hasControlTaskBusHealth()
                                     Layout.fillWidth: true
                                     text: "控制任务总线  " + controlTaskBusSummaryText()
                                     color: overviewPage.summarySurface.muted
-                                    font.pixelSize: 12
+                                    font.pixelSize: Design.Foundation.textMd
                                     wrapMode: Text.WordWrap
                                 }
                                 Text {
@@ -801,14 +801,14 @@ Item {
                                     Layout.fillWidth: true
                                     text: "最近租约活动  " + controlTaskBusRecentEventsText(3)
                                     color: Design.Theme.palette.textMuted
-                                    font.pixelSize: 11
+                                    font.pixelSize: Design.Foundation.textSm
                                     wrapMode: Text.WordWrap
                                 }
                                 Text {
                                     Layout.fillWidth: true
                                     text: "已启用频道  " + ((studioBridge.status.enabledChannels || []).join(", ") || "无")
                                     color: overviewPage.summarySurface.meta
-                                    font.pixelSize: 12
+                                    font.pixelSize: Design.Foundation.textMd
                                     wrapMode: Text.WordWrap
                                 }
                             }
@@ -872,7 +872,7 @@ Item {
                                     Text {
                                         text: modelData.label
                                         color: chipStyle.label
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                     }
 
                                     Text {

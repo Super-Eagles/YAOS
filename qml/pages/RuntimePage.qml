@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import "../components"
@@ -232,7 +232,7 @@ Item {
                         width: parent.width
                         text: "运行区段 Runtime Sections"
                         color: Design.Theme.surface("summary").title
-                        font.pixelSize: 12
+                        font.pixelSize: Design.Foundation.textMd
                         font.weight: Font.Black
                     }
 
@@ -241,7 +241,7 @@ Item {
                         text: (currentRuntimeSectionSpec.title || "") + "  ·  " +
                               String(currentRuntimeSectionSpec.cardCount || 0) + " 个面板"
                         color: runtimeSectionAccent(currentRuntimeSectionSpec.accentKey || "runtime")
-                        font.pixelSize: 13
+                        font.pixelSize: Design.Foundation.textLg
                         font.weight: Font.DemiBold
                         wrapMode: Text.WordWrap
                     }
@@ -250,7 +250,7 @@ Item {
                         width: parent.width
                         text: currentRuntimeSectionSpec.description || ""
                         color: Design.Theme.surface("summary").muted
-                        font.pixelSize: 12
+                        font.pixelSize: Design.Foundation.textMd
                         wrapMode: Text.WordWrap
                     }
 

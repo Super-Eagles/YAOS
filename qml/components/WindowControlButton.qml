@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import "../theme" as Design
 
@@ -30,7 +30,7 @@ Button {
         color: root.controlTheme.text
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
-        font.pixelSize: 12
+        font.pixelSize: Design.Foundation.textMd
         font.weight: Font.Light
     }
 

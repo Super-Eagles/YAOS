@@ -345,12 +345,20 @@ bool FastNetHttpTransport::sendStreaming(const HttpRequest &request,
                     if (!state) {
                         return false;
                     }
-                    // qDebug() << "[FastNetHttpTransport] Stream chunk received, size =" << chunk.size();
-                    std::lock_guard<std::mutex> lock(state->mutex);
-                    if (state->completed || !state->onChunk) {
-                        return !state->completed;
+                    StreamChunkCallback chunkCb;
+                    {
+                        std::lock_guard<std::mutex> lock(state->mutex);
+                        if (state->completed || !state->onChunk) {
+                            return !state->completed;
+                        }
+                        chunkCb = state->onChunk;
                     }
-                    return state->onChunk(QByteArray(chunk.data(), static_cast<int>(chunk.size())));
+                    // Call onChunk WITHOUT holding state->mutex.
+                    // completeStreamingResponse() may fire synchronously inside
+                    // the FastNet call stack (e.g. when Content-Length bytes are
+                    // fully consumed), which triggers completeCallback→completeOnce
+                    // that also needs state->mutex — holding it here would deadlock.
+                    return chunkCb(QByteArray(chunk.data(), static_cast<int>(chunk.size())));
                 },
                 // completeCallback
                 [weakClient2, completeOnce](const FastNet::HttpResponse &response) {

@@ -22,7 +22,12 @@ QtObject {
         "accentGreen": ThemeKit.Palette.accentGreen,
         "accentPink": ThemeKit.Palette.accentPink,
         "accentAmber": ThemeKit.Palette.accentAmber,
-        "accentSlate": ThemeKit.Palette.accentSlate
+        "accentSlate": ThemeKit.Palette.accentSlate,
+        "surfaceCardStart": ThemeKit.Palette.surfaceCardStart,
+        "surfaceCardEnd": ThemeKit.Palette.surfaceCardEnd,
+        "surfaceOverlay": ThemeKit.Palette.surfaceOverlay,
+        "accentPurple": ThemeKit.Palette.accentPurple,
+        "accentViolet": ThemeKit.Palette.accentViolet
     })
 
     readonly property var foundation: ({

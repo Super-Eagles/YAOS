@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import "../theme" as Design
@@ -34,19 +34,19 @@ NeoCard {
         return containerWidth >= 860 ? 2 : 1;
     }
 
-    ColumnLayout {
-        Layout.fillWidth: true
+    Column {
+        width: parent.width
         spacing: 12
 
         Rectangle {
-            Layout.fillWidth: true
+            width: parent.width
             implicitHeight: webSearchSummaryColumn.implicitHeight + 22
             radius: 8
             color: summaryBoxStyle.background
             border.width: 1
             border.color: summaryBoxStyle.border
 
-            ColumnLayout {
+            Column {
                 id: webSearchSummaryColumn
                 x: 11
                 y: 11
@@ -54,22 +54,22 @@ NeoCard {
                 spacing: 6
 
                 Text {
-                    Layout.fillWidth: true
+                    width: parent.width
                     text: "当前提供方  " + read("tools.web.search.provider", "brave") +
                           "  ·  默认结果数  " + read("tools.web.search.maxResults", 5).toString()
                     color: summaryBoxStyle.title
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     font.weight: Font.DemiBold
                     wrapMode: Text.WordWrap
                 }
 
                 Text {
-                    Layout.fillWidth: true
+                    width: parent.width
                     text: ((read("tools.web.proxy", "") || "").length > 0)
                         ? ("代理已配置  " + read("tools.web.proxy", ""))
-                        : "当前未配置代理,默认直接访问搜索和抓取服务."
+                        : "当前未配置代理,默认直接访问搜索 and 抓取服务."
                     color: summaryBoxStyle.text
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     wrapMode: Text.WordWrap
                 }
             }
@@ -77,7 +77,7 @@ NeoCard {
 
         ResponsiveGridStrip {
             id: webSearchHeaderGrid
-            Layout.fillWidth: true
+            width: parent.width
             forcedColumns: formColumnCount(width)
             itemCount: 2
             minimumCellWidth: 220
@@ -105,7 +105,7 @@ NeoCard {
         }
 
         GlassField {
-            Layout.fillWidth: true
+            width: parent.width
             text: read("tools.web.search.apiKey", "")
             placeholderText: "搜索 API Key;未配置时 Brave / Tavily / Jina 会回退到 DuckDuckGo"
             echoMode: TextInput.Password
@@ -113,24 +113,24 @@ NeoCard {
         }
 
         GlassField {
-            Layout.fillWidth: true
+            width: parent.width
             text: read("tools.web.search.baseUrl", "")
             placeholderText: "SearXNG 地址 / Base URL,例如 https://searx.example.com"
             onEditingFinished: assign("tools.web.search.baseUrl", text)
         }
 
         GlassField {
-            Layout.fillWidth: true
+            width: parent.width
             text: read("tools.web.proxy", "")
             placeholderText: "可选 HTTP 代理,例如 http://127.0.0.1:7890"
             onEditingFinished: assign("tools.web.proxy", text)
         }
 
         Text {
-            Layout.fillWidth: true
+            width: parent.width
             text: "web_search 支持 Brave,DuckDuckGo,Tavily,SearXNG,Jina.web_fetch 会先尝试 Jina Reader,再回退 HTML 提取."
             color: listItemStyle.meta
-            font.pixelSize: 12
+            font.pixelSize: Design.Foundation.textMd
             wrapMode: Text.WordWrap
         }
     }

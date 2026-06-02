@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import QtGraphicalEffects 1.14
@@ -155,7 +155,7 @@ Rectangle {
                     Text {
                         text: root.overline
                         color: root.heroTheme.overlineText
-                        font.pixelSize: 10
+                        font.pixelSize: Design.Foundation.textXs
                         font.weight: Font.Black
                         font.letterSpacing: 1.5
                     }
@@ -215,7 +215,7 @@ Rectangle {
                             width: parent.width
                             text: modelData.label || ""
                             color: metricTheme.label
-                            font.pixelSize: 9
+                            font.pixelSize: Design.Foundation.textXxs
                             font.weight: Font.DemiBold
                             font.letterSpacing: 1.2
                             wrapMode: Text.WordWrap

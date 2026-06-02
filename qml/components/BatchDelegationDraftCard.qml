@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import "../theme" as Design
@@ -277,7 +277,7 @@ NeoCard {
             border.width: 1
             border.color: summaryBoxStyle.border
 
-            ColumnLayout {
+            Column {
                 id: batchDraftSummaryColumn
                 x: 11
                 y: 11
@@ -285,23 +285,23 @@ NeoCard {
                 spacing: 6
 
                 Text {
-                    Layout.fillWidth: true
+                    width: parent.width
                     text: root.draftSourceLabel.length > 0
                         ? ("来源  " + root.draftSourceLabel)
                         : "来源  尚未带入"
                     color: root.draftSourceLabel.length > 0 ? Design.Theme.section("draft").accent : listItemStyle.text
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     wrapMode: Text.WordWrap
                 }
 
                 Text {
-                    Layout.fillWidth: true
+                    width: parent.width
                     text: "批次标签  " +
                           (root.groupLabelText.trim().length > 0 ? root.groupLabelText : "未填写") +
                           "  ·  子任务  " + String(root.taskDrafts.length) +
                           "  ·  默认约束  " + String(root.activeConstraintCount) + " 项"
                     color: summaryBoxStyle.text
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     wrapMode: Text.WordWrap
                 }
             }
@@ -478,7 +478,7 @@ NeoCard {
             Layout.fillWidth: true
             text: "顶层 targetNode / targetRole / tags / tool / memory 会作为整组默认值;每个子任务都可以继续单独覆盖这些路由条件."
             color: listItemStyle.text
-            font.pixelSize: 11
+            font.pixelSize: Design.Foundation.textSm
             wrapMode: Text.WordWrap
         }
 
@@ -572,7 +572,7 @@ NeoCard {
                                 border.color: listItemStyle.border
                                 implicitHeight: taskDraftColumn.implicitHeight + 24
 
-                                ColumnLayout {
+                                Column {
                                     id: taskDraftColumn
                                     width: parent.width - 24
                                     anchors.left: parent.left
@@ -670,7 +670,7 @@ NeoCard {
                                         width: parent.width
                                         text: batchTaskOverrideSummary(modelData)
                                         color: listItemStyle.text
-                                        font.pixelSize: 11
+                                        font.pixelSize: Design.Foundation.textSm
                                         wrapMode: Text.WordWrap
                                     }
                                 }
@@ -682,7 +682,7 @@ NeoCard {
                             visible: root.taskDrafts.length === 0
                             text: "还没有子任务.你可以从当前预演或任务树带入,也可以手动新增结构化子任务."
                             color: listItemStyle.meta
-                            font.pixelSize: 12
+                            font.pixelSize: Design.Foundation.textMd
                             wrapMode: Text.WordWrap
                         }
                     }
@@ -694,7 +694,7 @@ NeoCard {
             Layout.fillWidth: true
             text: "只读导出摘要"
             color: listItemStyle.text
-            font.pixelSize: 11
+            font.pixelSize: Design.Foundation.textSm
         }
 
         ReadOnlyTextView {

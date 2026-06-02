@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import "../components"
@@ -173,7 +173,7 @@ Item {
                                         id: extensionSummaryLabel
                                         text: "已接入"
                                         color: extensionSummaryChip.summaryChipStyle.border
-                                        font.pixelSize: 11
+                                        font.pixelSize: Design.Foundation.textSm
                                         font.weight: Font.Black
                                         anchors.left: parent.left
                                         anchors.verticalCenter: parent.verticalCenter
@@ -196,7 +196,7 @@ Item {
                                         anchors.verticalCenter: parent.verticalCenter
                                         text: "当前能力面已同步到扩展配置区"
                                         color: summaryBoxStyle.meta
-                                        font.pixelSize: 11
+                                        font.pixelSize: Design.Foundation.textSm
                                         elide: Text.ElideRight
                                     }
                                 }
@@ -206,7 +206,7 @@ Item {
                                 width: parent.width
                                 text: "用于快速判断插件,技能和 MCP 的接入规模;下方每块卡片负责具体安装和配置."
                                 color: summaryBoxStyle.text
-                                font.pixelSize: 12
+                                font.pixelSize: Design.Foundation.textMd
                                 wrapMode: Text.WordWrap
                             }
                         }
@@ -263,13 +263,13 @@ Item {
                                     Text {
                                         text: modelData.label
                                         color: chipStyle.label
-                                        font.pixelSize: 11
+                                        font.pixelSize: Design.Foundation.textSm
                                     }
 
                                     Text {
                                         text: modelData.value
                                         color: chipStyle.value
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         font.weight: Font.Black
                                     }
                                 }
@@ -337,7 +337,7 @@ Item {
                                                     ? "插件"
                                                     : (modelData.kind === "skill" ? "技能" : "MCP")
                                                 color: kindChipStyle.text
-                                                font.pixelSize: 11
+                                                font.pixelSize: Design.Foundation.textSm
                                                 font.weight: Font.DemiBold
                                             }
                                         }
@@ -353,7 +353,7 @@ Item {
                                                 width: parent.width
                                                 text: modelData.title || modelData.installId
                                                 color: listItemStyle.title
-                                                font.pixelSize: 15
+                                                font.pixelSize: Design.Foundation.textXxl
                                                 font.weight: Font.DemiBold
                                                 elide: Text.ElideRight
                                             }
@@ -362,7 +362,7 @@ Item {
                                                 width: parent.width
                                                 text: modelData.summary || ""
                                                 color: listItemStyle.body
-                                                font.pixelSize: 12
+                                                font.pixelSize: Design.Foundation.textMd
                                                 wrapMode: Text.WordWrap
                                             }
                                         }
@@ -383,7 +383,7 @@ Item {
                                         width: parent.width
                                         text: modelData.description || ""
                                         color: listItemStyle.text
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         wrapMode: Text.WordWrap
                                     }
 
@@ -391,7 +391,7 @@ Item {
                                         width: parent.width
                                         text: "安装目标: " + (modelData.target || "")
                                         color: modelData.installed ? Design.Theme.status("success").text : Design.Theme.status("info").text
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         wrapMode: Text.WordWrap
                                     }
 
@@ -400,7 +400,7 @@ Item {
                                         visible: (modelData.tags || []).length > 0
                                         text: "标签: " + (modelData.tags || []).join(" · ")
                                         color: listItemStyle.meta
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         wrapMode: Text.WordWrap
                                     }
                                 }
@@ -442,7 +442,7 @@ Item {
                                 width: parent.width
                                 text: "已发现 " + String((studioBridge.plugins || []).length || 0) + " 个插件"
                                 color: summaryBoxStyle.title
-                                font.pixelSize: 13
+                                font.pixelSize: Design.Foundation.textLg
                                 font.weight: Font.DemiBold
                             }
 
@@ -450,7 +450,7 @@ Item {
                                 width: parent.width
                                 text: "每个插件都可以单独指定 provider,model 和备注;修改后由运行时自动重载对应工具."
                                 color: summaryBoxStyle.text
-                                font.pixelSize: 12
+                                font.pixelSize: Design.Foundation.textMd
                                 wrapMode: Text.WordWrap
                             }
                         }
@@ -495,7 +495,7 @@ Item {
                                         width: parent.width
                                         text: (modelData.name || modelData.id) + "  ·  " + (modelData.version || "0.0.0")
                                         color: listItemStyle.title
-                                        font.pixelSize: 15
+                                        font.pixelSize: Design.Foundation.textXxl
                                         font.weight: Font.DemiBold
                                         elide: Text.ElideRight
                                     }
@@ -504,7 +504,7 @@ Item {
                                         width: parent.width
                                         text: modelData.description || modelData.rootPath || ""
                                         color: listItemStyle.body
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         wrapMode: Text.WordWrap
                                     }
 
@@ -513,7 +513,7 @@ Item {
                                         text: "工具名: " + ((modelData.toolName || "").length > 0 ? modelData.toolName : "自动生成") +
                                             "  ·  执行器: " + ((modelData.executorType || "").length > 0 ? modelData.executorType : "未知")
                                         color: Design.Theme.status("info").text
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         wrapMode: Text.WordWrap
                                     }
 
@@ -593,7 +593,7 @@ Item {
                                 width: parent.width
                                 text: "已发现 " + String((studioBridge.skills || []).length || 0) + " 个技能"
                                 color: summaryBoxStyle.title
-                                font.pixelSize: 13
+                                font.pixelSize: Design.Foundation.textLg
                                 font.weight: Font.DemiBold
                             }
 
@@ -601,7 +601,7 @@ Item {
                                 width: parent.width
                                 text: "这里控制技能注入的默认模型和触发词;触发词越清晰,对话里的命中越稳定."
                                 color: summaryBoxStyle.text
-                                font.pixelSize: 12
+                                font.pixelSize: Design.Foundation.textMd
                                 wrapMode: Text.WordWrap
                             }
                         }
@@ -646,7 +646,7 @@ Item {
                                         width: parent.width
                                         text: modelData.name || modelData.id
                                         color: listItemStyle.title
-                                        font.pixelSize: 15
+                                        font.pixelSize: Design.Foundation.textXxl
                                         font.weight: Font.DemiBold
                                         elide: Text.ElideRight
                                     }
@@ -655,7 +655,7 @@ Item {
                                         width: parent.width
                                         text: modelData.description || modelData.skillFile || ""
                                         color: listItemStyle.body
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         wrapMode: Text.WordWrap
                                     }
 
@@ -740,7 +740,7 @@ Item {
                                 width: parent.width
                                 text: "当前已配置 " + String(mcpServerNames().length) + " 个 MCP 服务"
                                 color: summaryBoxStyle.title
-                                font.pixelSize: 13
+                                font.pixelSize: Design.Foundation.textLg
                                 font.weight: Font.DemiBold
                             }
 
@@ -748,7 +748,7 @@ Item {
                                 width: parent.width
                                 text: "支持本地 stdio,streamable HTTP 和 SSE;顶部保存后,运行时会按这些预设重新注册远端工具."
                                 color: summaryBoxStyle.text
-                                font.pixelSize: 12
+                                font.pixelSize: Design.Foundation.textMd
                                 wrapMode: Text.WordWrap
                             }
                         }
@@ -789,7 +789,7 @@ Item {
                             Layout.columnSpan: mcpActionStrip.columns
                             text: "变更后记得点击顶部“保存更改”"
                             color: listItemStyle.meta
-                            font.pixelSize: 12
+                            font.pixelSize: Design.Foundation.textMd
                             wrapMode: Text.WordWrap
                         }
                     }
@@ -846,7 +846,7 @@ Item {
                                             Layout.fillWidth: true
                                             text: serverName
                                             color: listItemStyle.title
-                                            font.pixelSize: 15
+                                            font.pixelSize: Design.Foundation.textXxl
                                             font.weight: Font.DemiBold
                                         }
 
@@ -892,7 +892,7 @@ Item {
                                                     ? "通过 HTTP 调用远端 MCP"
                                                     : "通过 SSE 会话与旧版 MCP 服务通信")
                                             color: listItemStyle.meta
-                                            font.pixelSize: 12
+                                            font.pixelSize: Design.Foundation.textMd
                                             wrapMode: Text.WordWrap
                                         }
                                     }

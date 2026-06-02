@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import QtGraphicalEffects 1.14
@@ -201,7 +201,7 @@ Rectangle {
                                     : parent.width
                                 text: root.title
                                 color: root.cardTheme.title
-                                font.pixelSize: 13
+                                font.pixelSize: Design.Foundation.textLg
                                 font.weight: Font.DemiBold
                                 font.letterSpacing: 0.3
                                 wrapMode: Text.WordWrap
@@ -226,7 +226,7 @@ Rectangle {
                                     anchors.centerIn: parent
                                     text: root.titleBadgeText
                                     color: root.cardTheme.badgeText
-                                    font.pixelSize: 10
+                                    font.pixelSize: Design.Foundation.textXs
                                     font.weight: Font.Black
                                     font.letterSpacing: 0.8
                                 }
@@ -239,7 +239,7 @@ Rectangle {
                             text: root.subtitle
                             color: root.cardTheme.subtitle
                             wrapMode: Text.WordWrap
-                            font.pixelSize: 10
+                            font.pixelSize: Design.Foundation.textXs
                             font.letterSpacing: 0.2
                         }
                     }
@@ -264,7 +264,7 @@ Rectangle {
                             id: guideLabel
                             text: "指南"
                             color: root.cardTheme.guideLabel
-                            font.pixelSize: 10
+                            font.pixelSize: Design.Foundation.textXs
                             font.weight: Font.Black
                             font.letterSpacing: 1.0
                             anchors.left: parent.left
@@ -279,7 +279,7 @@ Rectangle {
                             anchors.top:        parent.top
                             text: root.guideText
                             color: root.cardTheme.guideText
-                            font.pixelSize: 10
+                            font.pixelSize: Design.Foundation.textXs
                             wrapMode: Text.WordWrap
                         }
                     }
@@ -294,7 +294,7 @@ Rectangle {
             anchors.top:       headerBlock.visible ? headerBlock.bottom : parent.top
             anchors.topMargin: headerBlock.visible ? root.frameSpacing : 0
             anchors.bottom:    root.stretchContent ? parent.bottom : undefined
-            spacing: 6
+            spacing:           6
         }
     }
 }

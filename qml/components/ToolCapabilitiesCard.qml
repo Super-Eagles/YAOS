@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import "../theme" as Design
@@ -42,13 +42,13 @@ NeoCard {
         return count;
     }
 
-    ColumnLayout {
-        Layout.fillWidth: true
+    Column {
+        width: parent.width
         spacing: 12
 
         Rectangle {
-            Layout.fillWidth: true
-            implicitHeight: toolCapabilitySummaryRow.implicitHeight + 12
+            width: parent.width
+            implicitHeight: 32
             radius: 8
             color: summaryBoxStyle.background
             border.width: 1
@@ -64,7 +64,7 @@ NeoCard {
                 Text {
                     text: "已启用 " + String(countEnabledCapabilities()) + " / " + String((runtimeCapabilities || []).length)
                     color: summaryBoxStyle.title
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     font.weight: Font.DemiBold
                 }
 
@@ -79,7 +79,7 @@ NeoCard {
                     Layout.fillWidth: true
                     text: "关闭某类能力后,对话,自动化和委托链里都不会再注册对应工具."
                     color: summaryBoxStyle.text
-                    font.pixelSize: 11
+                    font.pixelSize: Design.Foundation.textSm
                     elide: Text.ElideRight
                 }
             }
@@ -87,7 +87,7 @@ NeoCard {
 
         RowLayout {
             id: toolCapabilitiesGrid
-            Layout.fillWidth: true
+            width: parent.width
             spacing: 12
 
             Repeater {
@@ -113,7 +113,7 @@ NeoCard {
                             Layout.fillWidth: true
                             text: modelData.title
                             color: capabilityStyle.title
-                            font.pixelSize: 12
+                            font.pixelSize: Design.Foundation.textMd
                             font.weight: Font.DemiBold
                             elide: Text.ElideRight
                         }

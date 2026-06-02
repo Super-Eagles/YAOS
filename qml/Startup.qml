@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtGraphicalEffects 1.14
 import "theme" as Design
 
@@ -407,7 +407,7 @@ Rectangle {
                           " ms  ·  累计 " + Number(studioBridge.startupElapsedMs || 0) + " ms"
                     horizontalAlignment: Text.AlignHCenter
                     color: Design.Theme.alpha(Design.Theme.palette.accentCyan, 0.45)
-                    font.pixelSize: 10
+                    font.pixelSize: Design.Foundation.textXs
                     font.letterSpacing: 0.5
                 }
 
@@ -417,7 +417,7 @@ Rectangle {
                     text: visualMessage
                     horizontalAlignment: Text.AlignHCenter
                     color: Design.Theme.palette.textPrimary
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     wrapMode: Text.WordWrap
                 }
 
@@ -439,7 +439,7 @@ Rectangle {
                             color: (index === ((studioBridge.startupTimeline || []).length - 1))
                                 ? Design.Theme.palette.accentCyan
                                 : Design.Theme.alpha(Design.Theme.palette.accentCyan, 0.35)
-                            font.pixelSize: 10
+                            font.pixelSize: Design.Foundation.textXs
                             wrapMode: Text.WordWrap
                         }
                     }
@@ -467,7 +467,7 @@ Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "AI OPERATING SYSTEM"
                 color: Design.Theme.alpha(Design.Theme.palette.accentCyan, 0.60)
-                font.pixelSize: 10
+                font.pixelSize: Design.Foundation.textXs
                 font.letterSpacing: 4
             }
         }

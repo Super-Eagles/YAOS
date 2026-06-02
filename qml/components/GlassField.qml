@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import "../theme" as Design
 
@@ -10,7 +10,7 @@ TextField {
     Accessible.role: Accessible.EditableText
     Accessible.name: root.placeholderText || "Text field"
     color: root.fieldTheme.text
-    font.pixelSize: 13
+    font.pixelSize: Design.Foundation.textLg
     placeholderTextColor: root.fieldTheme.placeholder
     selectByMouse: true
     selectedTextColor: root.fieldTheme.selectedText

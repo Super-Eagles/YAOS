@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtGraphicalEffects 1.14
 import "../theme" as Design
@@ -54,7 +54,7 @@ CheckBox {
             ? root.checkTheme.textChecked
             : (root.hovered ? root.checkTheme.textHover : root.checkTheme.text)
         Behavior on color { ColorAnimation { duration: Design.Theme.foundation.durationFast; easing.type: Easing.OutExpo } }
-        font.pixelSize: 12
+        font.pixelSize: Design.Foundation.textMd
         font.weight: root.checked ? Font.DemiBold : Font.Normal
         font.letterSpacing: 0.2
         verticalAlignment: Text.AlignVCenter

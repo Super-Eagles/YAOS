@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import "../theme" as Design
@@ -377,7 +377,7 @@ NeoCard {
                     ? ("当前选中  " + delegationTemplateSummary(root.selectedTemplate))
                     : "当前选中  无"
                 color: root.selectedTemplate ? Design.Theme.section("template").accent : listItemStyle.text
-                font.pixelSize: 12
+                font.pixelSize: Design.Foundation.textMd
                 wrapMode: Text.WordWrap
             }
 
@@ -461,7 +461,7 @@ NeoCard {
             Layout.fillWidth: true
             text: "模板保存会走统一配置写回,所以会和当前配置草稿一起落盘.单任务保存当前委托草稿,批量保存当前批量委托草稿."
             color: listItemStyle.text
-            font.pixelSize: 11
+            font.pixelSize: Design.Foundation.textSm
             wrapMode: Text.WordWrap
         }
 
@@ -552,7 +552,7 @@ NeoCard {
             Layout.fillWidth: true
             text: "传输 JSON 可以在运行时页面和 CLI 之间共享;`template-export` / `template-import` 也使用同一个封装格式."
             color: listItemStyle.text
-            font.pixelSize: 11
+            font.pixelSize: Design.Foundation.textSm
             wrapMode: Text.WordWrap
         }
 
@@ -617,7 +617,7 @@ NeoCard {
                                 text: (modelData.name || "模板") +
                                       "  |  " + delegationTemplateKindTitle(modelData.kind || "single")
                                 color: itemStyle.title
-                                font.pixelSize: 13
+                                font.pixelSize: Design.Foundation.textLg
                                 font.weight: Font.DemiBold
                                 elide: Text.ElideRight
                             }
@@ -626,7 +626,7 @@ NeoCard {
                                 width: parent.width
                                 text: delegationTemplateSummary(modelData)
                                 color: itemStyle.accent
-                                font.pixelSize: 11
+                                font.pixelSize: Design.Foundation.textSm
                                 wrapMode: Text.WordWrap
                             }
 
@@ -635,7 +635,7 @@ NeoCard {
                                 visible: String(modelData.note || "").trim().length > 0
                                 text: modelData.note || ""
                                 color: itemStyle.body
-                                font.pixelSize: 11
+                                font.pixelSize: Design.Foundation.textSm
                                 wrapMode: Text.WordWrap
                             }
 
@@ -643,7 +643,7 @@ NeoCard {
                                 width: parent.width
                                 text: "更新于  " + formatIsoDateTime(modelData.updatedAt || "")
                                 color: itemStyle.meta
-                                font.pixelSize: 10
+                                font.pixelSize: Design.Foundation.textXs
                             }
                         }
                     }
@@ -654,7 +654,7 @@ NeoCard {
                     visible: root.templates.length === 0
                     text: "还没有保存的委托模板.先准备一条草稿,再点 `存单任务` 或 `存批量`."
                     color: listItemStyle.text
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     wrapMode: Text.WordWrap
                 }
             }

@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Layouts 1.14
 import "../theme" as Design
 
@@ -25,37 +25,37 @@ NeoCard {
         return app ? app.read.apply(app, arguments) : undefined;
     }
 
-    ColumnLayout {
-        Layout.fillWidth: true
+    Column {
+        width: parent.width
         spacing: 12
 
         Text {
-            Layout.fillWidth: true
+            width: parent.width
             text: "默认上下文"
             color: Design.Theme.section("runtime").accent
-            font.pixelSize: 11
+            font.pixelSize: Design.Foundation.textSm
             font.weight: Font.Black
                         font.letterSpacing: 0.5
         }
 
         GlassField {
-            Layout.fillWidth: true
+            width: parent.width
             text: read("agents.defaults.workspace", "")
             placeholderText: "工作区路径"
             onEditingFinished: assign("agents.defaults.workspace", text)
         }
 
         Text {
-            Layout.fillWidth: true
+            width: parent.width
             text: "推理参数"
             color: Design.Theme.section("runtime").accent
-            font.pixelSize: 11
+            font.pixelSize: Design.Foundation.textSm
             font.weight: Font.Black
                         font.letterSpacing: 0.5
         }
 
         GridLayout {
-            Layout.fillWidth: true
+            width: parent.width
             columns: 3
             columnSpacing: 10
             rowSpacing: 10

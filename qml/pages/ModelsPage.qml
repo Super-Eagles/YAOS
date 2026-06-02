@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import "../components"
@@ -78,7 +78,7 @@ Item {
                         Text {
                             text: "默认提供商"
                             color: Design.Theme.section("models").accent
-                            font.pixelSize: 11
+                            font.pixelSize: Design.Foundation.textSm
                             font.weight: Font.DemiBold
                         }
                         NeoComboBox {
@@ -125,7 +125,7 @@ Item {
                         Text {
                             text: "默认模型"
                             color: Design.Theme.section("models").accent
-                            font.pixelSize: 11
+                            font.pixelSize: Design.Foundation.textSm
                             font.weight: Font.DemiBold
                         }
                         NeoComboBox {
@@ -147,7 +147,7 @@ Item {
                         Text {
                             text: "配置操作"
                             color: Design.Theme.section("models").accent
-                            font.pixelSize: 11
+                            font.pixelSize: Design.Foundation.textSm
                             font.weight: Font.DemiBold
                         }
                         ActionButton {
@@ -275,7 +275,7 @@ Item {
                                 width: parent.width
                                 text: providerCard.showAdvanced ? "收起高级配置 ▲" : "展开高级配置 ▼"
                                 color: Design.Theme.section("models").accent
-                                font.pixelSize: 11
+                                font.pixelSize: Design.Foundation.textSm
                                 font.weight: Font.DemiBold
                                 horizontalAlignment: Text.AlignRight
                                 topPadding: 4
@@ -344,7 +344,7 @@ Item {
                                     visible: headersInput.hasFormatError && headersInput.activeFocus
                                     text: "格式错误: 此处需为 key=value 键值对,每行一个"
                                     color: Design.Theme.status("warning").text
-                                    font.pixelSize: 12
+                                    font.pixelSize: Design.Foundation.textMd
                                     wrapMode: Text.WordWrap
                                 }
 
@@ -353,7 +353,7 @@ Item {
                                     visible: app && app.providerHeaderHint(modelData.key).length > 0
                                     text: app ? app.providerHeaderHint(modelData.key) : ""
                                     color: Design.Theme.section("models").accent
-                                    font.pixelSize: 12
+                                    font.pixelSize: Design.Foundation.textMd
                                     wrapMode: Text.WordWrap
                                 }
                             }
@@ -379,7 +379,7 @@ Item {
                                         width: parent.width
                                         text: "OAuth / Auth 状态"
                                         color: summaryBoxStyle.title
-                                        font.pixelSize: 13
+                                        font.pixelSize: Design.Foundation.textLg
                                         font.weight: Font.DemiBold
                                         wrapMode: Text.WordWrap
                                     }
@@ -388,7 +388,7 @@ Item {
                                         width: parent.width
                                         text: providerCard.authSummary.length > 0 ? providerCard.authSummary : "尚未连接."
                                         color: summaryBoxStyle.text
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         wrapMode: Text.WordWrap
                                     }
 
@@ -397,7 +397,7 @@ Item {
                                         visible: providerCard.authDiagnostics.length > 0
                                         text: providerCard.authDiagnostics
                                         color: summaryBoxStyle.meta
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         wrapMode: Text.WordWrap
                                     }
 
@@ -406,7 +406,7 @@ Item {
                                         visible: String(providerCard.authStateCache.userCode || "").length > 0
                                         text: "验证码: " + String(providerCard.authStateCache.userCode || "")
                                         color: Design.Theme.status("warning").text
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         wrapMode: Text.WordWrap
                                     }
 
@@ -415,7 +415,7 @@ Item {
                                         visible: String(providerCard.authStateCache.verificationUrl || "").length > 0
                                         text: "验证地址: " + String(providerCard.authStateCache.verificationUrl || "")
                                         color: summaryBoxStyle.text
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         wrapMode: Text.WordWrap
                                     }
 
@@ -424,7 +424,7 @@ Item {
                                         visible: String(providerCard.authStateCache.redirectUri || "").length > 0
                                         text: "回调地址: " + String(providerCard.authStateCache.redirectUri || "")
                                         color: summaryBoxStyle.meta
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         wrapMode: Text.WordWrap
                                     }
 
@@ -433,7 +433,7 @@ Item {
                                         visible: String(providerCard.authStateCache.callbackUrl || "").length > 0
                                         text: "最近回调: " + String(providerCard.authStateCache.callbackUrl || "")
                                         color: summaryBoxStyle.meta
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         wrapMode: Text.WordWrap
                                     }
 
@@ -558,7 +558,7 @@ Item {
                                         ((app ? app.providerValue(modelData.key, "model", "") : "") || availableModels[0]))
                                     : "填写 API Base / API Key 后点击“同步模型”,这里会显示可选模型列表."
                                 color: listItemStyle.meta
-                                font.pixelSize: 12
+                                font.pixelSize: Design.Foundation.textMd
                                 wrapMode: Text.WordWrap
                             }
                         }

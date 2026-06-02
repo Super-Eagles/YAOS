@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Layouts 1.14
 import "../theme" as Design
 
@@ -80,19 +80,19 @@ NeoCard {
         return preferredWidth > 0 ? preferredWidth : 16777215;
     }
 
-    ColumnLayout {
-        Layout.fillWidth: true
+    Column {
+        width: parent.width
         spacing: 12
 
         Rectangle {
-            Layout.fillWidth: true
+            width: parent.width
             implicitHeight: memoryPlaneSummary.implicitHeight + 12
             radius: 8
             color: summaryBoxStyle.background
             border.width: 1
             border.color: summaryBoxStyle.border
 
-            ColumnLayout {
+            Column {
                 id: memoryPlaneSummary
                 x: 10
                 y: 10
@@ -100,30 +100,30 @@ NeoCard {
                 spacing: 4
 
                 Text {
-                    Layout.fillWidth: true
+                    width: parent.width
                     text: "当前记忆配置"
                     color: summaryBoxStyle.title
-                    font.pixelSize: 11
+                    font.pixelSize: Design.Foundation.textSm
                     font.weight: Font.Black
                         font.letterSpacing: 0.5
                 }
 
                 Text {
-                    Layout.fillWidth: true
+                    width: parent.width
                     text: "模式  " + read("memory.mode", "legacy") +
                           "  ·  后端  " + read("memory.backend", "legacy") +
                           "  ·  服务  " + memoryServiceStatusText()
                     color: studioBridge && studioBridge.status && studioBridge.status.memoryServiceReachable
                         ? successStatusStyle.text
                         : summaryBoxStyle.text
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     wrapMode: Text.WordWrap
                 }
             }
         }
 
         GridLayout {
-            Layout.fillWidth: true
+            width: parent.width
             columns: formColumns(parent.width)
             columnSpacing: 12
             rowSpacing: 12
@@ -160,7 +160,7 @@ NeoCard {
         }
 
         GridLayout {
-            Layout.fillWidth: true
+            width: parent.width
             columns: formColumns(parent.width)
             columnSpacing: 12
             rowSpacing: 12
@@ -177,7 +177,7 @@ NeoCard {
                     Layout.maximumWidth: maxLayoutWidth(compactMetricLabelWidth(root.width))
                     text: "排除条数"
                     color: summaryBoxStyle.title
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     font.weight: Font.DemiBold
                     elide: Text.ElideRight
                 }
@@ -199,7 +199,7 @@ NeoCard {
                 Text {
                     text: "条"
                     color: summaryBoxStyle.meta
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                 }
             }
 
@@ -215,7 +215,7 @@ NeoCard {
                     Layout.maximumWidth: maxLayoutWidth(compactMetricLabelWidth(root.width))
                     text: "召回上限"
                     color: summaryBoxStyle.title
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     font.weight: Font.DemiBold
                     elide: Text.ElideRight
                 }
@@ -237,7 +237,7 @@ NeoCard {
                 Text {
                     text: "条"
                     color: summaryBoxStyle.meta
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                 }
             }
         }
@@ -255,7 +255,7 @@ NeoCard {
         }
 
         GridLayout {
-            Layout.fillWidth: true
+            width: parent.width
             columns: formColumns(parent.width)
             columnSpacing: 12
             rowSpacing: 12
@@ -294,14 +294,14 @@ NeoCard {
         }
 
         Text {
-            Layout.fillWidth: true
+            width: parent.width
             text: "服务状态： " + memoryServiceStatusText() +
                   "  |  端点： " + memoryServiceEndpointText() +
                   (studioBridge && studioBridge.status && studioBridge.status.memoryServiceAutoSpawn ? "  |  自动拉起：开启" : "  |  自动拉起：关闭")
             color: studioBridge && studioBridge.status && studioBridge.status.memoryServiceReachable
                 ? successStatusStyle.text
                 : summarySurface.meta
-            font.pixelSize: 12
+            font.pixelSize: Design.Foundation.textMd
             wrapMode: Text.WordWrap
         }
     }

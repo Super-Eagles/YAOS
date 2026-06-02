@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import "../theme" as Design
@@ -96,21 +96,23 @@ NeoCard {
                     onClicked: root.selectedNodeId = modelData.nodeId || ""
                 }
 
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.margins: 14
+                Row {
+                    x: 14
+                    y: 14
+                    width: parent.width - 28
+                    height: parent.height - 28
                     spacing: 14
 
                     Rectangle {
-                        Layout.preferredWidth: 10
-                        Layout.fillHeight: true
+                        width: 10
+                        height: parent.height
                         radius: 5
                         color: modelData.online ? successStatusStyle.accent : nodeItemStyle.meta
                     }
 
                     Column {
                         id: nodeDirectoryEntryColumn
-                        Layout.fillWidth: true
+                        width: parent.width - 24
                         spacing: 5
 
                         Text {
@@ -118,7 +120,7 @@ NeoCard {
                             text: (modelData.displayName || modelData.nodeId || "节点") +
                                   ((modelData.online === false) ? "  [离线]" : "")
                             color: nodeItemStyle.title
-                            font.pixelSize: 15
+                            font.pixelSize: Design.Foundation.textXxl
                             font.weight: Font.DemiBold
                             elide: Text.ElideRight
                         }
@@ -127,7 +129,7 @@ NeoCard {
                             width: parent.width
                             text: nodePressureText(modelData)
                             color: modelData.online ? successStatusStyle.text : nodeItemStyle.text
-                            font.pixelSize: 12
+                            font.pixelSize: Design.Foundation.textMd
                             elide: Text.ElideRight
                         }
 
@@ -135,7 +137,7 @@ NeoCard {
                             width: parent.width
                             text: nodeIdentityText(modelData)
                             color: nodeItemStyle.accent
-                            font.pixelSize: 11
+                            font.pixelSize: Design.Foundation.textSm
                             elide: Text.ElideRight
                         }
 
@@ -143,7 +145,7 @@ NeoCard {
                             width: parent.width
                             text: nodeCapabilityText(modelData)
                             color: nodeItemStyle.meta
-                            font.pixelSize: 11
+                            font.pixelSize: Design.Foundation.textSm
                             elide: Text.ElideRight
                         }
                     }
@@ -174,7 +176,7 @@ NeoCard {
                            "节点")
                         : "未选择节点"
                     color: detailSummaryBoxStyle.title
-                    font.pixelSize: 16
+                    font.pixelSize: Design.Foundation.textHero
                     font.weight: Font.DemiBold
                     elide: Text.ElideRight
                 }
@@ -182,7 +184,7 @@ NeoCard {
                 Rectangle {
                     visible: !!root.selectedNode
                     Layout.fillWidth: true
-                    implicitHeight: nodeDetailSummaryRow.implicitHeight + 12
+                    implicitHeight: 32
                     radius: 8
                     color: summaryBoxStyle.background
                     border.width: 1
@@ -202,7 +204,7 @@ NeoCard {
                             color: root.selectedNode && root.selectedNode.online === false
                                 ? listItemStyle.meta
                                 : successStatusStyle.text
-                            font.pixelSize: 11
+                            font.pixelSize: Design.Foundation.textSm
                             font.weight: Font.Black
                         font.letterSpacing: 0.5
                         }
@@ -218,7 +220,7 @@ NeoCard {
                             Layout.fillWidth: true
                             text: nodeIdentityText(root.selectedNode || {})
                             color: summaryBoxStyle.text
-                            font.pixelSize: 11
+                            font.pixelSize: Design.Foundation.textSm
                             elide: Text.ElideRight
                         }
                     }
@@ -231,7 +233,7 @@ NeoCard {
                     color: root.selectedNode && root.selectedNode.online === false
                         ? listItemStyle.text
                         : successStatusStyle.text
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     wrapMode: Text.WordWrap
                 }
 
@@ -240,7 +242,7 @@ NeoCard {
                     Layout.fillWidth: true
                     text: nodePressureText(root.selectedNode)
                     color: Design.Theme.section("routing").accent
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     wrapMode: Text.WordWrap
                 }
 
@@ -249,7 +251,7 @@ NeoCard {
                     Layout.fillWidth: true
                     text: nodeIdentityText(root.selectedNode)
                     color: detailSummaryBoxStyle.text
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     wrapMode: Text.WordWrap
                 }
 
@@ -259,7 +261,7 @@ NeoCard {
                     Layout.fillWidth: true
                     text: "端点  " + (((root.selectedNode || {}).endpoint) || "")
                     color: listItemStyle.text
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     wrapMode: Text.WordWrap
                 }
 
@@ -274,7 +276,7 @@ NeoCard {
                            !((root.selectedNode || {}).endpointReachable)
                         ? Design.Theme.status("error").text
                         : listItemStyle.text
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     wrapMode: Text.WordWrap
                 }
 
@@ -325,7 +327,7 @@ NeoCard {
                                                 ? ("  ·  " + modelData.version)
                                                 : "")
                                         color: listItemStyle.title
-                                        font.pixelSize: 13
+                                        font.pixelSize: Design.Foundation.textLg
                                         font.weight: Font.DemiBold
                                         elide: Text.ElideRight
                                     }
@@ -334,7 +336,7 @@ NeoCard {
                                         width: parent.width
                                         text: nodeCapabilitySummary(modelData)
                                         color: listItemStyle.accent
-                                        font.pixelSize: 12
+                                        font.pixelSize: Design.Foundation.textMd
                                         wrapMode: Text.WordWrap
                                     }
 
@@ -342,7 +344,7 @@ NeoCard {
                                         width: parent.width
                                         text: nodeCapabilityFlags(modelData)
                                         color: listItemStyle.text
-                                        font.pixelSize: 11
+                                        font.pixelSize: Design.Foundation.textSm
                                         wrapMode: Text.WordWrap
                                     }
                                 }
@@ -355,7 +357,7 @@ NeoCard {
                                      (root.selectedNode.capabilities || []).length === 0
                             text: "该节点还没有上报能力清单."
                             color: listItemStyle.meta
-                            font.pixelSize: 12
+                            font.pixelSize: Design.Foundation.textMd
                             wrapMode: Text.WordWrap
                         }
                     }
@@ -366,7 +368,7 @@ NeoCard {
                     width: parent.width
                     text: "当前没有可用节点快照.切到集群模式,或等待本地 / 远端节点注册表刷新后,这里会显示详细能力."
                     color: listItemStyle.meta
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     wrapMode: Text.WordWrap
                 }
             }

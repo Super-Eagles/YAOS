@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Controls 2.14
 import QtQuick.Layouts 1.14
 import "../components"
@@ -325,252 +325,298 @@ Item {
                             anchors.fill: parent
                             clip: true
                             cacheBuffer: 8000
-                            spacing: 14
+                            spacing: 16
                             model: studioBridge ? studioBridge.chatHistory : []
 
-                            onCountChanged: positionViewAtEnd()
-
-                            delegate: Rectangle {
-                            readonly property var entry: {
-                                if(typeof modelData !== "undefined" && modelData !== null) {
-                                    return modelData;
+                            ScrollBar.vertical: ScrollBar {
+                                id: scrollBar
+                                policy: ScrollBar.AsNeeded
+                                active: true
+                                width: 6
+                                anchors.right: parent.right
+                                anchors.rightMargin: 2
+                                contentItem: Rectangle {
+                                    implicitWidth: 6
+                                    radius: 3
+                                    color: scrollBar.hovered || scrollBar.active ? "#66ffffff" : "#26ffffff"
+                                    Behavior on color { ColorAnimation { duration: 150 } }
                                 }
-                                return {
-                                    "role": typeof role !== "undefined" ? role : "",
-                                    "speaker": typeof speaker !== "undefined" ? speaker : "",
-                                    "content": typeof content !== "undefined" ? content : "",
-                                    "thinking": typeof thinking !== "undefined" ? thinking : "",
-                                    "meta": typeof meta !== "undefined" ? meta : "",
-                                    "trace": typeof trace !== "undefined" ? trace : [],
-                                    "error": typeof error !== "undefined" ? error : false,
-                                    "pending": typeof pending !== "undefined" ? pending : false,
-                                    "category": typeof category !== "undefined" ? category : "",
-                                    "level": typeof level !== "undefined" ? level : "",
-                                    "message": typeof message !== "undefined" ? message : ""
-                                };
                             }
-                             property var bubbleTheme: Design.Theme.conversationBubble(entry.role, entry.error)
-                             property var traceTheme: Design.Theme.traceItem()
-                             width: ListView.view.width
-                             height: bubbleColumn.implicitHeight + 28
-                             radius: 22
-                             color: bubbleTheme.background
-                             border.width: 1
-                             border.color: bubbleTheme.border
- 
-                             Column {
-                                 id: bubbleColumn
-                                 anchors.left: parent.left
-                                 anchors.right: parent.right
-                                 anchors.top: parent.top
-                                 anchors.margins: 14
-                                 spacing: 10
 
-                                Row {
-                                    spacing: 10
+                            onCountChanged: {
+                                Qt.callLater(function() {
+                                    chatList.positionViewAtEnd();
+                                });
+                            }
 
-                                    Text {
-                                        text: entry.speaker || entry.role
-                                        color: bubbleTheme.title
-                                        font.pixelSize: 14
-                                        font.weight: Font.DemiBold
+                            delegate: Item {
+                                id: delegateRoot
+                                readonly property var entry: {
+                                    if(typeof modelData !== "undefined" && modelData !== null) {
+                                        return modelData;
                                     }
+                                    return {
+                                        "role": typeof role !== "undefined" ? role : "",
+                                        "speaker": typeof speaker !== "undefined" ? speaker : "",
+                                        "content": typeof content !== "undefined" ? content : "",
+                                        "thinking": typeof thinking !== "undefined" ? thinking : "",
+                                        "meta": typeof meta !== "undefined" ? meta : "",
+                                        "trace": typeof trace !== "undefined" ? trace : [],
+                                        "error": typeof error !== "undefined" ? error : false,
+                                        "pending": typeof pending !== "undefined" ? pending : false,
+                                        "category": typeof category !== "undefined" ? category : "",
+                                        "level": typeof level !== "undefined" ? level : "",
+                                        "message": typeof message !== "undefined" ? message : ""
+                                    };
+                                }
+                                readonly property bool isUser: entry.role === "user"
+
+                                width: chatList.width
+                                height: Math.max(avatar.height, messageColumn.height) + 16
+
+                                // WeChat-Style Avatar
+                                Rectangle {
+                                    id: avatar
+                                    width: 38
+                                    height: 38
+                                    radius: 8
+                                    color: delegateRoot.isUser ? "#07c160" : "#00bcd4" // WeChat Green vs Cyber Blue
+                                    anchors.top: parent.top
+                                    anchors.topMargin: 4
+                                    anchors.left: delegateRoot.isUser ? undefined : parent.left
+                                    anchors.right: delegateRoot.isUser ? parent.right : undefined
+                                    anchors.leftMargin: delegateRoot.isUser ? 0 : 8
+                                    anchors.rightMargin: delegateRoot.isUser ? 8 : 0
 
                                     Text {
-                                        text: entry.meta || ""
-                                        color: bubbleTheme.meta
-                                        font.pixelSize: 11
-                                    }
-
-                                    Text {
-                                        visible: !!entry.pending
-                                        text: "思考中"
-                                        color: Design.Theme.status("warning").text
-                                        font.pixelSize: 11
-                                        font.weight: Font.DemiBold
+                                        anchors.centerIn: parent
+                                        text: delegateRoot.isUser ? "我" : (entry.speaker ? entry.speaker.substring(0, 1) : "A")
+                                        color: "#FFFFFF"
+                                        font.pixelSize: Design.Foundation.textXl
+                                        font.weight: Font.Bold
                                     }
                                 }
 
-                                Text {
-                                    visible: entry.role === "user"
-                                    width: parent.width
-                                    text: entry.content || ""
-                                    color: bubbleTheme.body
-                                    wrapMode: Text.WordWrap
-                                    font.pixelSize: 14
-                                }
-
-                                TextEdit {
-                                    visible: entry.role !== "user"
-                                    width: parent.width
-                                    height: Math.max(contentHeight, 24)
-                                    readOnly: true
-                                    selectByMouse: true
-                                    wrapMode: TextEdit.Wrap
-                                    textFormat: TextEdit.RichText
-                                    color: bubbleTheme.body
-                                    text: studioBridge.markdownToHtml(entry.content || "")
-                                    cursorVisible: false
-                                    persistentSelection: true
-                                    selectByKeyboard: true
-                                }
-
-                                // Thinking / reasoning block — collapsible, shown before trace
+                                // Message Bubble Column (Tag, Bubble, Copy button)
                                 Column {
-                                    visible: entry.role !== "user" && !entry.pending && !!entry.thinking
-                                    width: parent.width
-                                    spacing: 0
-                                    property bool expanded: false
+                                    id: messageColumn
+                                    anchors.top: parent.top
+                                    anchors.left: delegateRoot.isUser ? parent.left : avatar.right
+                                    anchors.right: delegateRoot.isUser ? avatar.left : parent.right
+                                    anchors.leftMargin: delegateRoot.isUser ? 48 : 12
+                                    anchors.rightMargin: delegateRoot.isUser ? 12 : 48
+                                    spacing: 6
 
+                                    // Header Info Tag
+                                    Row {
+                                        spacing: 8
+                                        anchors.right: delegateRoot.isUser ? parent.right : undefined
+                                        anchors.left: delegateRoot.isUser ? undefined : parent.left
+
+                                        Text {
+                                            text: entry.speaker || (delegateRoot.isUser ? "你" : "Agent")
+                                            color: delegateRoot.isUser ? "#95EC69" : "#C0DCF0"
+                                            font.pixelSize: Design.Foundation.textMd
+                                            font.weight: Font.DemiBold
+                                        }
+
+                                        Text {
+                                            text: entry.meta || ""
+                                            color: "#557088"
+                                            font.pixelSize: Design.Foundation.textXs
+                                        }
+
+                                        Text {
+                                            visible: !!entry.pending
+                                            text: "思考中..."
+                                            color: Design.Theme.status("warning").text
+                                            font.pixelSize: Design.Foundation.textXs
+                                            font.weight: Font.DemiBold
+                                        }
+                                    }
+
+                                    // Message Bubble background
                                     Rectangle {
-                                        width: parent.width
-                                        height: 32
-                                        radius: 8
-                                        color: "#0D1020"
+                                        id: bubbleBg
+                                        anchors.right: delegateRoot.isUser ? parent.right : undefined
+                                        anchors.left: delegateRoot.isUser ? undefined : parent.left
+                                        width: {
+                                            var maxW = parent.width;
+                                            var textW = delegateRoot.isUser ? userText.implicitWidth : assistantText.implicitWidth;
+                                            var desiredW = textW + 24;
+                                            if (!delegateRoot.isUser && !entry.pending && !!entry.thinking) {
+                                                desiredW = Math.max(desiredW, 200);
+                                            }
+                                            return Math.min(maxW, desiredW);
+                                        }
+                                        height: bubbleContentLayout.implicitHeight + 20
+                                        radius: 12
+                                        color: delegateRoot.isUser ? "#1B3B2B" : "#131625"
                                         border.width: 1
-                                        border.color: "#1E2A40"
+                                        border.color: delegateRoot.isUser ? "#2E5E43" : "#22273D"
 
-                                        Row {
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            anchors.left: parent.left
-                                            anchors.leftMargin: 10
-                                            spacing: 6
+                                        layer.enabled: true
+                                        layer.effect: DropShadow {
+                                            transparentBorder: true
+                                            horizontalOffset: 0
+                                            verticalOffset: 2
+                                            radius: 6
+                                            samples: 13
+                                            color: "#40000000"
+                                        }
+
+                                        Column {
+                                            id: bubbleContentLayout
+                                            anchors {
+                                                left: parent.left
+                                                right: parent.right
+                                                top: parent.top
+                                                margins: 10
+                                            }
+                                            spacing: 8
+
+                                            // User plain text bubble
                                             Text {
-                                                text: parent.parent.parent.expanded ? "▾" : "▸"
-                                                color: "#5B8DB8"
-                                                font.pixelSize: 12
-                                            }
-                                            Text {
-                                                text: "模型思考过程"
-                                                color: "#5B8DB8"
-                                                font.pixelSize: 12
-                                                font.weight: Font.Medium
-                                            }
-                                        }
-                                        MouseArea {
-                                            anchors.fill: parent
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: parent.parent.parent.expanded = !parent.parent.parent.expanded
-                                        }
-                                    }
-
-                                    Rectangle {
-                                        visible: parent.expanded
-                                        width: parent.width
-                                        height: thinkingEditContent.implicitHeight + 20
-                                        color: "#080B18"
-                                        border.width: 1
-                                        border.color: "#1E2A40"
-                                        radius: 8
-
-                                        TextEdit {
-                                            id: thinkingEditContent
-                                            anchors { top: parent.top; left: parent.left; right: parent.right; margins: 10 }
-                                            readOnly: true
-                                            selectByMouse: true
-                                            wrapMode: TextEdit.Wrap
-                                            textFormat: TextEdit.PlainText
-                                            color: "#7A9BBF"
-                                            font.pixelSize: 12
-                                            text: entry.thinking || ""
-                                            cursorVisible: false
-                                        }
-                                    }
-                                }
-
-                                Column {
-                                    visible: entry.trace && entry.trace.length > 0
-                                    width: parent.width
-                                    spacing: 8
-
-                                    Text {
-                                        text: "可见执行轨迹"
-                                        color: traceTheme.label
-                                        font.pixelSize: 12
-                                        font.weight: Font.DemiBold
-                                    }
-
-                                    Repeater {
-                                        model: entry.trace || []
-                                        delegate: Rectangle {
-                                            readonly property var traceEntry: {
-                                            if(typeof modelData !== "undefined" && modelData !== null) {
-                                                return modelData;
-                                            }
-                                            return {};
-                                        }
-                                         width: bubbleColumn.width
-                                         implicitHeight: traceColumn.implicitHeight + 20
-                                         radius: 14
-                                         color: traceTheme.background
-                                         border.width: 1
-                                         border.color: traceTheme.border
- 
-                                             Column {
-                                             id: traceColumn
-                                             anchors.left: parent.left
-                                             anchors.right: parent.right
-                                             anchors.top: parent.top
-                                             anchors.margins: 10
-                                             spacing: 4
-
-                                                Text {
-                                                text: (traceEntry.category || "事件") + " | " + (traceEntry.level || "info")
-                                                color: traceTheme.label
-                                                font.pixelSize: 11
-                                            }
-
-                                                Text {
+                                                id: userText
+                                                visible: delegateRoot.isUser
                                                 width: parent.width
-                                                text: traceEntry.message || ""
-                                                color: traceTheme.text
+                                                text: entry.content || ""
+                                                color: "#E5F5E5"
                                                 wrapMode: Text.WordWrap
-                                                font.pixelSize: 12
+                                                font.pixelSize: Design.Foundation.textXl
+                                                lineHeight: 1.2
+                                            }
+
+                                            // Assistant rich text/markdown bubble
+                                            TextEdit {
+                                                id: assistantText
+                                                visible: !delegateRoot.isUser
+                                                width: parent.width
+                                                height: Math.max(contentHeight, 24)
+                                                readOnly: true
+                                                selectByMouse: true
+                                                wrapMode: TextEdit.Wrap
+                                                textFormat: TextEdit.RichText
+                                                color: "#C5D5E5"
+                                                text: visible ? (studioBridge ? studioBridge.markdownToHtml(entry.content || "") : "") : ""
+                                                cursorVisible: false
+                                                persistentSelection: true
+                                                selectByKeyboard: true
+                                                font.pixelSize: Design.Foundation.textXl
+                                            }
+
+                                            // Collapsible model reasoning process
+                                            Column {
+                                                visible: !delegateRoot.isUser && !entry.pending && !!entry.thinking
+                                                width: parent.width
+                                                spacing: 4
+                                                property bool expanded: false
+
+                                                Rectangle {
+                                                    width: parent.width
+                                                    height: 28
+                                                    radius: 6
+                                                    color: "#0B0D18"
+                                                    border.width: 1
+                                                    border.color: "#1E2235"
+
+                                                    Row {
+                                                        anchors.fill: parent
+                                                        anchors.leftMargin: 8
+                                                        anchors.rightMargin: 8
+                                                        spacing: 6
+                                                        anchors.verticalCenter: parent.verticalCenter
+                                                        Text {
+                                                            text: parent.parent.expanded ? "▾" : "▸"
+                                                            color: "#5B8DB8"
+                                                            font.pixelSize: Design.Foundation.textSm
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                        }
+                                                        Text {
+                                                            text: "模型思考过程"
+                                                            color: "#5B8DB8"
+                                                            font.pixelSize: Design.Foundation.textSm
+                                                            font.weight: Font.Medium
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                        }
+                                                    }
+                                                    MouseArea {
+                                                        anchors.fill: parent
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: parent.parent.expanded = !parent.parent.expanded
+                                                    }
+                                                }
+
+                                                Rectangle {
+                                                    visible: parent.expanded
+                                                    width: parent.width
+                                                    height: thinkingEdit.implicitHeight + 16
+                                                    color: "#070810"
+                                                    border.width: 1
+                                                    border.color: "#1E2235"
+                                                    radius: 6
+
+                                                    TextEdit {
+                                                        id: thinkingEdit
+                                                        anchors { fill: parent; margins: 8 }
+                                                        readOnly: true
+                                                        selectByMouse: true
+                                                        wrapMode: TextEdit.Wrap
+                                                        textFormat: TextEdit.PlainText
+                                                        color: "#7A9BBF"
+                                                        font.pixelSize: Design.Foundation.textSm
+                                                        text: entry.thinking || ""
+                                                        cursorVisible: false
+                                                    }
+                                                }
                                             }
                                         }
                                     }
-                                }
-                            }
 
-                                ActionButton {
-                                visible: entry.role !== "user" && !entry.pending
-                                text: "复制本轮答复"
-                                compact: true
-                                onClicked: studioBridge.copyToClipboard(entry.content || "")
+                                    // Action copy button
+                                    ActionButton {
+                                        visible: !delegateRoot.isUser && !entry.pending
+                                        text: "复制本轮答复"
+                                        compact: true
+                                        onClicked: studioBridge.copyToClipboard(entry.content || "")
+                                    }
+                                }
                             }
                         }
-                    }
-                }
 
                     Connections {
-                    target: studioBridge ? studioBridge : null
-                    onChatHistoryChanged: chatList.positionViewAtEnd()
-                }
+                        target: studioBridge ? studioBridge : null
+                        onChatHistoryChanged: {
+                            Qt.callLater(function() {
+                                chatList.positionViewAtEnd();
+                            });
+                        }
+                    }
 
                     Column {
-                    anchors.centerIn: parent
-                    width: Math.min(parent.width - 32, 400)
-                    spacing: 12
-                    visible: chatList.count === 0 && !studioBridge.busy
+                        anchors.centerIn: parent
+                        width: Math.min(parent.width - 32, 400)
+                        spacing: 12
+                        visible: chatList.count === 0 && !studioBridge.busy
 
                         Text {
-                        width: parent.width
-                        text: "这里会展示每一轮对话,Markdown 回复和工具轨迹."
-                        color: listItemStyle.title
-                        font.pixelSize: 15
-                        wrapMode: Text.WordWrap
-                        horizontalAlignment: Text.AlignHCenter
-                    }
+                            width: parent.width
+                            text: "这里会展示每一轮对话和智能体的高质答复."
+                            color: listItemStyle.title
+                            font.pixelSize: Design.Foundation.textXxl
+                            wrapMode: Text.WordWrap
+                            horizontalAlignment: Text.AlignHCenter
+                        }
 
                         Text {
-                        width: parent.width
-                        text: "输入一个任务,例如“检查当前工作区配置并给出改进建议”."
-                        color: listItemStyle.meta
-                        font.pixelSize: 12
-                        wrapMode: Text.WordWrap
-                        horizontalAlignment: Text.AlignHCenter
+                            width: parent.width
+                            text: "输入一个任务,例如“检查当前工作区配置并给出改进建议”."
+                            color: listItemStyle.meta
+                            font.pixelSize: Design.Foundation.textMd
+                            wrapMode: Text.WordWrap
+                            horizontalAlignment: Text.AlignHCenter
+                        }
                     }
-                }
 
                     Rectangle {
                     id: busyPill
@@ -598,7 +644,7 @@ Item {
                             Text {
                             text: "Agent 正在处理"
                             color: busyPill.busyTheme.text
-                            font.pixelSize: 12
+                            font.pixelSize: Design.Foundation.textMd
                             font.weight: Font.DemiBold
                         }
                     }
@@ -628,7 +674,7 @@ Item {
                     Layout.fillWidth: true
                     text: "当前后端： " + (studioBridge.status.actualBackend || "不可用")
                     color: Design.Theme.section("routing").accent
-                    font.pixelSize: 13
+                    font.pixelSize: Design.Foundation.textLg
                     wrapMode: Text.WordWrap
                 }
 

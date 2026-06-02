@@ -12,6 +12,16 @@ QtObject {
     readonly property int iconSizeMd: 15
     readonly property int iconSizeLg: 17
 
+    // ── Font size scale (+2px across the board) ──────────
+    readonly property int textXxs:  11   // was 9  — micro annotations
+    readonly property int textXs:   12   // was 10 — tiny labels
+    readonly property int textSm:   13   // was 11 — captions / helper text
+    readonly property int textMd:   14   // was 12 — body (primary)
+    readonly property int textLg:   15   // was 13 — sub-headings
+    readonly property int textXl:   16   // was 14 — list titles
+    readonly property int textXxl:  17   // was 15 — section headings
+    readonly property int textHero: 18   // was 16 — hero / emphasis
+
     // Sharper, more angular radius for cyberpunk feel
     readonly property int radiusSm: 4
     readonly property int radiusMd: 6

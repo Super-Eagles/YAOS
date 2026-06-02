@@ -1,4 +1,4 @@
-import QtQuick 2.14
+﻿import QtQuick 2.14
 import QtQuick.Layouts 1.14
 import "../theme" as Design
 
@@ -83,19 +83,19 @@ NeoCard {
         return app ? app.runtimeServiceStatusText.apply(app, arguments) : "";
     }
 
-    ColumnLayout {
-        Layout.fillWidth: true
+    Column {
+        width: parent.width
         spacing: 12
 
         Rectangle {
-            Layout.fillWidth: true
+            width: parent.width
             implicitHeight: runtimeTopologySummary.implicitHeight + 12
             radius: 14
             color: summarySurface.background
             border.width: 1
             border.color: summarySurface.border
 
-            ColumnLayout {
+            Column {
                 id: runtimeTopologySummary
                 x: 10
                 y: 10
@@ -103,29 +103,30 @@ NeoCard {
                 spacing: 4
 
                 Text {
-                    Layout.fillWidth: true
+                    width: parent.width
                     text: "当前拓扑"
                     color: summarySurface.title
-                    font.pixelSize: 11
+                    font.pixelSize: Design.Foundation.textSm
                     font.weight: Font.Black
+                    font.letterSpacing: 0.5
                 }
 
                 Text {
-                    Layout.fillWidth: true
+                    width: parent.width
                     text: "模式  " + ((read("deployment.mode", "standalone") === "cluster") ? "集群" : "单机") +
                           "  ·  运行时  " + ((read("runtime.mode", "embedded") === "remote")
                                              ? "远端"
                                              : ((read("runtime.mode", "embedded") === "daemon") ? "守护进程" : "内嵌")) +
                           "  ·  节点  " + read("deployment.nodeId", "desktop-primary")
                     color: summarySurface.muted
-                    font.pixelSize: 12
+                    font.pixelSize: Design.Foundation.textMd
                     wrapMode: Text.WordWrap
                 }
             }
         }
 
         GridLayout {
-            Layout.fillWidth: true
+            width: parent.width
             columns: 2
             columnSpacing: 10
             rowSpacing: 10
@@ -156,7 +157,7 @@ NeoCard {
         }
 
         GridLayout {
-            Layout.fillWidth: true
+            width: parent.width
             columns: 2
             columnSpacing: 10
             rowSpacing: 10
@@ -177,7 +178,7 @@ NeoCard {
         }
 
         GridLayout {
-            Layout.fillWidth: true
+            width: parent.width
             columns: 2
             columnSpacing: 10
             rowSpacing: 10
@@ -198,7 +199,7 @@ NeoCard {
         }
 
         GridLayout {
-            Layout.fillWidth: true
+            width: parent.width
             columns: 2
             columnSpacing: 10
             rowSpacing: 10
@@ -219,7 +220,7 @@ NeoCard {
         }
 
         GridLayout {
-            Layout.fillWidth: true
+            width: parent.width
             columns: 2
             columnSpacing: 10
             rowSpacing: 10
@@ -240,7 +241,7 @@ NeoCard {
         }
 
         GridLayout {
-            Layout.fillWidth: true
+            width: parent.width
             columns: 3
             columnSpacing: 10
             rowSpacing: 4
@@ -268,7 +269,7 @@ NeoCard {
         }
 
         Text {
-            Layout.fillWidth: true
+            width: parent.width
             text: "运行时服务： " + runtimeServiceStatusText() +
                   "  |  端点： " + runtimeEndpointText() +
                   "  |  广播地址： " + runtimeAdvertiseEndpointText() +
@@ -276,47 +277,47 @@ NeoCard {
             color: studioBridge && studioBridge.status && studioBridge.status.runtimeServiceReachable
                 ? Design.Theme.status("success").text
                 : summarySurface.meta
-            font.pixelSize: 12
+            font.pixelSize: Design.Foundation.textMd
             wrapMode: Text.WordWrap
         }
 
         Text {
-            Layout.fillWidth: true
+            width: parent.width
             text: "控制平面： " + controlPlaneStatusText() +
                   "  |  端点： " + controlPlaneEndpointText()
             color: studioBridge && studioBridge.status && studioBridge.status.controlPlaneReachable
                 ? Design.Theme.status("success").text
                 : summarySurface.meta
-            font.pixelSize: 12
+            font.pixelSize: Design.Foundation.textMd
             wrapMode: Text.WordWrap
         }
 
         Text {
-            Layout.fillWidth: true
+            width: parent.width
             visible: hasControlTaskBusHealth()
             text: "任务总线： " + controlTaskBusSummaryText()
             color: summarySurface.meta
-            font.pixelSize: 12
+            font.pixelSize: Design.Foundation.textMd
             wrapMode: Text.WordWrap
         }
 
         Text {
-            Layout.fillWidth: true
+            width: parent.width
             visible: hasControlTaskBusHealth()
             text: "最近租约活动： " + controlTaskBusRecentEventsText(4)
             color: summaryBoxStyle.meta
-            font.pixelSize: 12
+            font.pixelSize: Design.Foundation.textMd
             wrapMode: Text.WordWrap
         }
 
         Text {
-            Layout.fillWidth: true
+            width: parent.width
             text: "注册表： " + registryStatusText() +
                   "  |  端点： " + registryEndpointText()
             color: studioBridge && studioBridge.status && studioBridge.status.registryReachable
                 ? successStatusStyle.text
                 : summarySurface.meta
-            font.pixelSize: 12
+            font.pixelSize: Design.Foundation.textMd
             wrapMode: Text.WordWrap
         }
     }
